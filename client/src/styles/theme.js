@@ -1,0 +1,37 @@
+export const theme = {
+  colors: {
+    primary: '#1e3a8a',
+    primaryDark: '#0f2b5c',
+    primaryLight: '#3b5b9d',
+    primaryLighter: '#e8edf5',
+    white: '#ffffff',
+    gray50: '#f8fafc',
+    gray100: '#f1f5f9',
+    gray200: '#e2e8f0',
+    gray300: '#cbd5e1',
+    gray400: '#94a3b8',
+    gray500: '#64748b',
+    gray600: '#475569',
+    gray700: '#334155',
+    gray800: '#1e293b',
+    gray900: '#0f172a',
+    success: '#059669',
+    warning: '#d97706',
+    danger: '#dc2626',
+    info: '#2563eb',
+  },
+  shadows: {
+    sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+    md: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+    xl: '0 20px 25px -5px rgb(0 0 0 / 0.1)',
+  },
+  borderRadius: {
+    sm: '4px',
+    md: '8px',
+    lg: '12px',
+    xl: '16px',
+    '2xl': '24px',
+    full: '9999px',
+  }
+};

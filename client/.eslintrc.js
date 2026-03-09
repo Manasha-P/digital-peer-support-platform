@@ -1,0 +1,7 @@
+module.exports = {
+  extends: ['react-app'],
+  rules: {
+    'no-unused-vars': 'warn',
+    'import/no-anonymous-default-export': 'warn'
+  }
+};

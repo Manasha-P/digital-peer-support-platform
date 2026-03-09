@@ -1,365 +1,699 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
-
-const features = [
-  {
-    icon: '🤝',
-    title: 'Trained Peer Supporters',
-    desc: 'Connect with empathetic, verified peer supporters who share lived experiences.',
-    color: 'stat-icon-blue',
-  },
-  {
-    icon: '💬',
-    title: 'Real-Time Chat',
-    desc: 'Secure, instant messaging with your supporter — available anytime you need.',
-    color: 'stat-icon-green',
-  },
-  {
-    icon: '📅',
-    title: 'Easy Session Booking',
-    desc: 'Schedule sessions around your day with a simple, intuitive calendar.',
-    color: 'stat-icon-yellow',
-  },
-  {
-    icon: '🔒',
-    title: 'Private & Confidential',
-    desc: 'End-to-end encrypted conversations. Your privacy is our top priority.',
-    color: 'stat-icon-purple',
-  },
-];
-
-const testimonials = [
-  {
-    name: 'Priya M.',
-    role: 'Student',
-    text: 'PeerSupport helped me through my most anxious semester. My supporter truly understood what I was going through.',
-    avatar: 'P',
-    color: 'avatar-purple',
-  },
-  {
-    name: 'Rohan K.',
-    role: 'Working Professional',
-    text: 'I was sceptical at first, but the sessions were genuinely transformative. Highly recommend to anyone struggling.',
-    avatar: 'R',
-    color: 'avatar-blue',
-  },
-  {
-    name: 'Sneha T.',
-    role: 'Homemaker',
-    text: 'Being able to talk to someone who actually gets it — not just a professional — made all the difference for me.',
-    avatar: 'S',
-    color: 'avatar-teal',
-  },
-];
-
-const stats = [
-  { value: '2,400+', label: 'Registered Users' },
-  { value: '180+',   label: 'Peer Supporters' },
-  { value: '8,900+', label: 'Sessions Done' },
-  { value: '4.9 ⭐', label: 'Average Rating' },
-];
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PencilIcon from '../components/common/PencilIcon';
+import { theme } from '../styles/theme';
+import { globalStyles } from '../styles/globalStyles';
 
 export default function LandingPage() {
-  const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const features = [
+    {
+      icon: 'messages',
+      title: 'Anonymous Support',
+      description: 'Connect with peer supporters anonymously in a safe, judgment-free environment.',
+      color: '#1e3a8a'
+    },
+    {
+      icon: 'calendar',
+      title: 'Flexible Scheduling',
+      description: 'Book sessions at your convenience with supporters who understand your schedule.',
+      color: '#1e3a8a'
+    },
+    {
+      icon: 'mood',
+      title: 'Wellness Tracking',
+      description: 'Track your mood and wellness journey with our built-in tracker.',
+      color: '#1e3a8a'
+    },
+    {
+      icon: 'star',
+      title: 'Verified Supporters',
+      description: 'All supporters are verified and trained to provide quality peer support.',
+      color: '#1e3a8a'
+    },
+    {
+      icon: 'notifications',
+      title: 'Real-time Notifications',
+      description: 'Get instant updates on session requests, messages, and reminders.',
+      color: '#1e3a8a'
+    },
+    {
+      icon: 'completed',
+      title: 'Progress Tracking',
+      description: 'Monitor your progress and see how far you\'ve come in your wellness journey.',
+      color: '#1e3a8a'
+    }
+  ];
+
+  const stats = [
+    { value: '500+', label: 'Active Supporters' },
+    { value: '10k+', label: 'Sessions Completed' },
+    { value: '4.9/5', label: 'Average Rating' },
+    { value: '24/7', label: 'Support Available' }
+  ];
+
+  const testimonials = [
+    {
+      name: 'Sarah J.',
+      role: 'College Student',
+      content: 'PeerBridge helped me through my anxiety during finals week. The supporter was understanding and gave me practical coping strategies.',
+      rating: 5
+    },
+    {
+      name: 'Michael C.',
+      role: 'Working Professional',
+      content: 'I was skeptical at first, but the sessions really helped me manage work-related stress. Highly recommended!',
+      rating: 5
+    },
+    {
+      name: 'Emily R.',
+      role: 'Graduate Student',
+      content: 'Having someone who listens without judgment made all the difference. Grateful for this platform.',
+      rating: 5
+    }
+  ];
+
+  const handleGetStarted = () => {
+    navigate('/role-select');
+  };
+
+  const handleLearnMore = () => {
+    const featuresSection = document.getElementById('features');
+    featuresSection?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      {/* ─── NAVBAR ─── */}
-      <nav
-        className="navbar-custom"
-        style={{
-          boxShadow: scrolled ? '0 4px 24px rgba(37,99,235,0.10)' : 'none',
-          transition: 'box-shadow 0.3s',
-        }}
-      >
-        <Container>
-          <div className="d-flex align-items-center justify-content-between w-100">
-            <Link to="/" className="navbar-brand-custom">
-              <div className="brand-icon">💙</div>
-              PeerSupport
-            </Link>
-            <div className="d-flex align-items-center gap-2">
-              <Link to="/login"    className="btn-ghost">Sign In</Link>
-              <Link to="/register" className="btn-primary-custom">
-                Get Started →
-              </Link>
+    <div style={{ background: theme.colors.gray50, minHeight: '100vh' }}>
+      {/* Navigation */}
+      <nav style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        background: isScrolled ? theme.colors.white : 'transparent',
+        boxShadow: isScrolled ? theme.shadows.md : 'none',
+        transition: 'all 0.3s',
+        zIndex: 1000,
+        padding: '16px 0'
+      }}>
+        <div style={globalStyles.container}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            {/* Logo */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                background: theme.colors.primary,
+                borderRadius: theme.borderRadius.md,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <PencilIcon name="messages" size={24} color={theme.colors.white} />
+              </div>
+              <span style={{
+                fontSize: '24px',
+                fontWeight: 700,
+                color: theme.colors.primary
+              }}>
+                PeerBridge
+              </span>
+            </div>
+
+            {/* Navigation Links */}
+            <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+              <a href="#features" style={{ color: theme.colors.gray700, textDecoration: 'none', fontSize: '16px' }}>Features</a>
+              <a href="#how-it-works" style={{ color: theme.colors.gray700, textDecoration: 'none', fontSize: '16px' }}>How It Works</a>
+              <a href="#testimonials" style={{ color: theme.colors.gray700, textDecoration: 'none', fontSize: '16px' }}>Testimonials</a>
+              <button
+                onClick={() => navigate('/login')}
+                style={globalStyles.button.secondary}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={handleGetStarted}
+                style={globalStyles.button.primary}
+              >
+                Get Started
+                <PencilIcon name="check" size={16} color={theme.colors.white} />
+              </button>
             </div>
           </div>
-        </Container>
+        </div>
       </nav>
 
-      {/* ─── HERO ─── */}
-      <section className="hero-section">
-        <Container style={{ position: 'relative', zIndex: 2 }}>
-          <Row className="align-items-center g-5">
-            <Col lg={6}>
-              <div className="animate-fadeInUp">
-                <span className="badge-custom badge-primary mb-3">
-                  <span className="online-dot" style={{ width: 7, height: 7 }}></span>
-                  Peer Support Platform
-                </span>
-                <h1
+      {/* Hero Section */}
+      <section style={{
+        padding: '120px 0 80px',
+        background: `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.primaryDark} 100%)`,
+        color: theme.colors.white
+      }}>
+        <div style={globalStyles.container}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '60px',
+            alignItems: 'center'
+          }}>
+            <div>
+              <h1 style={{
+                fontSize: '52px',
+                fontWeight: 700,
+                color: theme.colors.white,
+                lineHeight: 1.2,
+                marginBottom: '20px'
+              }}>
+                Your Safe Space for
+                <span style={{ display: 'block', color: '#fbbf24' }}>Peer Support</span>
+              </h1>
+              <p style={{
+                fontSize: '18px',
+                color: 'rgba(255,255,255,0.9)',
+                lineHeight: 1.6,
+                marginBottom: '32px',
+                maxWidth: '500px'
+              }}>
+                Connect with trained peer supporters anonymously. Get the support you need, when you need it.
+              </p>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <button
+                  onClick={handleGetStarted}
                   style={{
-                    fontSize: 'clamp(2.2rem, 5vw, 3.2rem)',
-                    lineHeight: 1.18,
-                    letterSpacing: '-1.5px',
-                    color: 'var(--dark)',
-                    marginBottom: '1.2rem',
+                    ...globalStyles.button.primary,
+                    background: theme.colors.white,
+                    color: theme.colors.primary,
+                    padding: '16px 32px',
+                    fontSize: '16px'
                   }}
                 >
-                  You Don't Have to <br />
-                  <span
-                    style={{
-                      background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    Face It Alone
-                  </span>
-                </h1>
-                <p
+                  Start Your Journey
+                  <PencilIcon name="arrow" size={18} color={theme.colors.primary} />
+                </button>
+                <button
+                  onClick={handleLearnMore}
                   style={{
-                    fontSize: '1.08rem',
-                    color: 'var(--gray)',
-                    lineHeight: 1.7,
-                    maxWidth: 480,
-                    marginBottom: '2rem',
+                    ...globalStyles.button.secondary,
+                    background: 'transparent',
+                    color: theme.colors.white,
+                    borderColor: 'rgba(255,255,255,0.3)',
+                    padding: '16px 32px',
+                    fontSize: '16px'
                   }}
                 >
-                  Connect with trained peer supporters who truly understand.
-                  Get real-time emotional guidance in a safe, confidential space — any time, any day.
-                </p>
-                <div className="d-flex flex-wrap gap-3 align-items-center">
-                  <Link to="/register" className="btn-primary-custom" style={{ padding: '13px 30px', fontSize: '1rem' }}>
-                    Start Free Today →
-                  </Link>
-                  <Link to="/login" className="btn-outline-custom" style={{ padding: '12px 28px', fontSize: '1rem' }}>
-                    Sign In
-                  </Link>
-                </div>
-                <p style={{ fontSize: '0.82rem', color: 'var(--gray)', marginTop: '1rem' }}>
-                  ✅ Free to join &nbsp;·&nbsp; 🔒 100% Confidential &nbsp;·&nbsp; 💙 No judgment
-                </p>
+                  Learn More
+                </button>
               </div>
-            </Col>
-
-            <Col lg={6}>
-              <div className="animate-float" style={{ animationDelay: '0.3s' }}>
-                {/* Mock chat preview card */}
-                <div
-                  className="card-custom animate-fadeInUp animate-delay-2"
-                  style={{ padding: '0', overflow: 'hidden', maxWidth: 420, margin: '0 auto' }}
-                >
-                  {/* Chat header */}
-                  <div
-                    style={{
-                      padding: '16px 20px',
-                      background: 'white',
-                      borderBottom: '1px solid var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                    }}
-                  >
-                    <div className="avatar avatar-md avatar-teal">A</div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--dark)' }}>
-                        Anjali (Peer Supporter)
-                      </div>
-                      <div className="d-flex align-items-center gap-1" style={{ fontSize: '0.78rem', color: 'var(--success)' }}>
-                        <span className="online-dot" style={{ width: 7, height: 7 }}></span>
-                        Online now
-                      </div>
+            </div>
+            <div style={{
+              background: 'rgba(255,255,255,0.1)',
+              borderRadius: theme.borderRadius['2xl'],
+              padding: '40px',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    borderRadius: theme.borderRadius.lg,
+                    padding: '20px',
+                    textAlign: 'center'
+                  }}>
+                    <PencilIcon 
+                      name={i === 1 ? 'messages' : i === 2 ? 'calendar' : i === 3 ? 'mood' : 'completed'} 
+                      size={32} 
+                      color={theme.colors.white} 
+                    />
+                    <div style={{ marginTop: '12px', fontSize: '14px', color: theme.colors.white }}>
+                      {i === 1 ? 'Anonymous' : i === 2 ? 'Flexible' : i === 3 ? 'Track' : 'Progress'}
                     </div>
                   </div>
-                  {/* Chat messages */}
-                  <div style={{ padding: '20px', background: '#F8FAFF', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div className="message-bubble message-received" style={{ maxWidth: '80%' }}>
-                      Hi! I'm Anjali. I'm here to listen. How are you feeling today? 😊
-                      <span className="message-time">10:02 AM</span>
-                    </div>
-                    <div className="message-bubble message-sent" style={{ maxWidth: '80%', alignSelf: 'flex-end' }}>
-                      I've been really anxious about exams lately...
-                      <span className="message-time" style={{ opacity: 0.7 }}>10:04 AM</span>
-                    </div>
-                    <div className="message-bubble message-received" style={{ maxWidth: '80%' }}>
-                      I completely understand that feeling. I went through the same thing. Let's talk about it — what's worrying you the most?
-                      <span className="message-time">10:05 AM</span>
-                    </div>
-                    <div className="typing-indicator">
-                      <div className="typing-dot"></div>
-                      <div className="typing-dot"></div>
-                      <div className="typing-dot"></div>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
-            </Col>
-          </Row>
-        </Container>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* ─── STATS STRIP ─── */}
-      <section style={{ background: 'var(--dark)', padding: '40px 0' }}>
-        <Container>
-          <Row className="text-center g-4">
-            {stats.map((s, i) => (
-              <Col xs={6} md={3} key={i}>
-                <div
-                  className="animate-fadeInUp"
-                  style={{ animationDelay: `${i * 0.1}s`, opacity: 0 }}
-                >
-                  <div
-                    style={{
-                      fontFamily: "'Sora', sans-serif",
-                      fontWeight: 800,
-                      fontSize: '2rem',
-                      color: 'white',
-                      letterSpacing: '-1px',
-                    }}
-                  >
-                    {s.value}
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.88rem', marginTop: 4 }}>
-                    {s.label}
-                  </div>
+      {/* Stats Section */}
+      <section style={{ padding: '60px 0', background: theme.colors.white }}>
+        <div style={globalStyles.container}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: '30px'
+          }}>
+            {stats.map(stat => (
+              <div key={stat.label} style={{ textAlign: 'center' }}>
+                <div style={{
+                  fontSize: '36px',
+                  fontWeight: 700,
+                  color: theme.colors.primary,
+                  marginBottom: '8px'
+                }}>
+                  {stat.value}
                 </div>
-              </Col>
+                <div style={{
+                  fontSize: '16px',
+                  color: theme.colors.gray600
+                }}>
+                  {stat.label}
+                </div>
+              </div>
             ))}
-          </Row>
-        </Container>
+          </div>
+        </div>
       </section>
 
-      {/* ─── FEATURES ─── */}
-      <section style={{ padding: '80px 0', background: 'white' }}>
-        <Container>
-          <div className="text-center mb-5">
-            <span className="badge-custom badge-primary mb-3">Why PeerSupport?</span>
-            <h2 style={{ fontSize: '2.2rem', letterSpacing: '-1px', color: 'var(--dark)' }}>
-              Everything you need to feel better
+      {/* Features Section */}
+      <section id="features" style={{ padding: '80px 0', background: theme.colors.gray50 }}>
+        <div style={globalStyles.container}>
+          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+            <h2 style={globalStyles.typography.h2}>
+              Why Choose PeerBridge?
             </h2>
-            <p style={{ color: 'var(--gray)', maxWidth: 500, margin: '12px auto 0', lineHeight: 1.7 }}>
-              Designed with care to make getting support as easy and safe as possible.
+            <p style={{
+              ...globalStyles.typography.body,
+              maxWidth: '600px',
+              margin: '20px auto 0'
+            }}>
+              Our platform is designed to provide safe, anonymous, and effective peer support
             </p>
           </div>
-          <Row className="g-4">
-            {features.map((f, i) => (
-              <Col md={6} lg={3} key={i}>
-                <div
-                  className="card-custom animate-fadeInUp"
-                  style={{ padding: '28px 24px', height: '100%', animationDelay: `${i * 0.1}s`, opacity: 0 }}
-                >
-                  <div className={`stat-icon ${f.color}`} style={{ marginBottom: 16 }}>
-                    {f.icon}
-                  </div>
-                  <h5 style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, marginBottom: 8, fontSize: '1.05rem' }}>
-                    {f.title}
-                  </h5>
-                  <p style={{ color: 'var(--gray)', fontSize: '0.9rem', lineHeight: 1.65, margin: 0 }}>
-                    {f.desc}
-                  </p>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '30px'
+          }}>
+            {features.map(feature => (
+              <div key={feature.title} style={{
+                ...globalStyles.card,
+                transition: 'transform 0.3s, box-shadow 0.3s',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-5px)';
+                e.currentTarget.style.boxShadow = theme.shadows.lg;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = theme.shadows.md;
+              }}
+              >
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  background: `${feature.color}10`,
+                  borderRadius: theme.borderRadius.md,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '20px'
+                }}>
+                  <PencilIcon name={feature.icon} size={28} color={feature.color} />
                 </div>
-              </Col>
+                <h3 style={{
+                  fontSize: '20px',
+                  fontWeight: 600,
+                  color: theme.colors.primary,
+                  marginBottom: '12px'
+                }}>
+                  {feature.title}
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: theme.colors.gray600,
+                  lineHeight: 1.6,
+                  margin: 0
+                }}>
+                  {feature.description}
+                </p>
+              </div>
             ))}
-          </Row>
-        </Container>
+          </div>
+        </div>
       </section>
 
-      {/* ─── TESTIMONIALS ─── */}
-      <section style={{ padding: '80px 0', background: 'var(--bg)' }}>
-        <Container>
-          <div className="text-center mb-5">
-            <span className="badge-custom badge-success mb-3">💬 Real Stories</span>
-            <h2 style={{ fontSize: '2.2rem', letterSpacing: '-1px', color: 'var(--dark)' }}>
-              People who found their way
+      {/* How It Works Section */}
+      <section id="how-it-works" style={{ padding: '80px 0', background: theme.colors.white }}>
+        <div style={globalStyles.container}>
+          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+            <h2 style={globalStyles.typography.h2}>
+              How It Works
             </h2>
+            <p style={{
+              ...globalStyles.typography.body,
+              maxWidth: '600px',
+              margin: '20px auto 0'
+            }}>
+              Get started in three simple steps
+            </p>
           </div>
-          <Row className="g-4">
-            {testimonials.map((t, i) => (
-              <Col md={4} key={i}>
-                <div
-                  className="card-custom animate-fadeInUp"
-                  style={{ padding: '28px', height: '100%', animationDelay: `${i * 0.15}s`, opacity: 0 }}
-                >
-                  <div style={{ marginBottom: 16, color: '#F59E0B', fontSize: '1rem' }}>
-                    ★★★★★
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '40px',
+            position: 'relative'
+          }}>
+            {[
+              {
+                step: 1,
+                icon: 'user',
+                title: 'Create Account',
+                description: 'Sign up anonymously and tell us a bit about yourself'
+              },
+              {
+                step: 2,
+                icon: 'find',
+                title: 'Find a Supporter',
+                description: 'Browse and choose from our verified peer supporters'
+              },
+              {
+                step: 3,
+                icon: 'messages',
+                title: 'Start Session',
+                description: 'Connect and start your journey towards better wellness'
+              }
+            ].map((item, index) => (
+              <div key={item.step} style={{ textAlign: 'center', position: 'relative' }}>
+                {index < 2 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '40px',
+                    right: '-20px',
+                    width: '40px',
+                    height: '2px',
+                    background: theme.colors.primary,
+                    opacity: 0.3,
+                    display: 'none'
+                  }} />
+                )}
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  background: theme.colors.primary,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 24px',
+                  position: 'relative'
+                }}>
+                  <span style={{
+                    position: 'absolute',
+                    top: -8,
+                    right: -8,
+                    width: '24px',
+                    height: '24px',
+                    background: theme.colors.warning,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: theme.colors.white,
+                    fontSize: '12px',
+                    fontWeight: 700
+                  }}>
+                    {item.step}
+                  </span>
+                  <PencilIcon name={item.icon} size={32} color={theme.colors.white} />
+                </div>
+                <h3 style={{
+                  fontSize: '20px',
+                  fontWeight: 600,
+                  color: theme.colors.primary,
+                  marginBottom: '12px'
+                }}>
+                  {item.title}
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: theme.colors.gray600,
+                  lineHeight: 1.6,
+                  margin: 0
+                }}>
+                  {item.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" style={{ padding: '80px 0', background: theme.colors.gray50 }}>
+        <div style={globalStyles.container}>
+          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+            <h2 style={globalStyles.typography.h2}>
+              What Our Users Say
+            </h2>
+            <p style={{
+              ...globalStyles.typography.body,
+              maxWidth: '600px',
+              margin: '20px auto 0'
+            }}>
+              Real stories from real people
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '30px'
+          }}>
+            {testimonials.map(t => (
+              <div key={t.name} style={{
+                ...globalStyles.card,
+                position: 'relative'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  fontSize: '40px',
+                  color: theme.colors.primary,
+                  opacity: 0.1
+                }}>
+                  "
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} filled={i < t.rating} />
+                  ))}
+                </div>
+                <p style={{
+                  fontSize: '15px',
+                  color: theme.colors.gray700,
+                  lineHeight: 1.6,
+                  marginBottom: '20px',
+                  fontStyle: 'italic'
+                }}>
+                  "{t.content}"
+                </p>
+                <div>
+                  <div style={{
+                    fontWeight: 600,
+                    color: theme.colors.primary
+                  }}>
+                    {t.name}
                   </div>
-                  <p style={{ color: 'var(--dark-3)', lineHeight: 1.7, fontSize: '0.95rem', fontStyle: 'italic', marginBottom: 20 }}>
-                    "{t.text}"
-                  </p>
-                  <div className="d-flex align-items-center gap-3">
-                    <div className={`avatar avatar-md ${t.color}`}>{t.avatar}</div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.92rem' }}>{t.name}</div>
-                      <div style={{ color: 'var(--gray)', fontSize: '0.8rem' }}>{t.role}</div>
-                    </div>
+                  <div style={{
+                    fontSize: '13px',
+                    color: theme.colors.gray500
+                  }}>
+                    {t.role}
                   </div>
                 </div>
-              </Col>
+              </div>
             ))}
-          </Row>
-        </Container>
-      </section>
-
-      {/* ─── CTA ─── */}
-      <section
-        style={{
-          padding: '80px 0',
-          background: 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        <Container style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
-          <h2 style={{ fontSize: '2.4rem', color: 'white', letterSpacing: '-1px', marginBottom: '1rem', fontFamily: "'Sora', sans-serif" }}>
-            Ready to take the first step?
-          </h2>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.05rem', marginBottom: '2rem', maxWidth: 440, margin: '0 auto 2rem' }}>
-            Join thousands who found comfort and clarity through peer support.
-          </p>
-          <Link
-            to="/register"
-            style={{
-              background: 'white',
-              color: 'var(--primary)',
-              padding: '14px 36px',
-              borderRadius: '12px',
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 700,
-              fontSize: '1rem',
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
-              transition: 'all 0.2s',
-            }}
-          >
-            Create Free Account →
-          </Link>
-        </Container>
-      </section>
-
-      {/* ─── FOOTER ─── */}
-      <footer style={{ background: 'var(--dark)', padding: '32px 0', textAlign: 'center' }}>
-        <Container>
-          <div className="navbar-brand-custom justify-content-center mb-2" style={{ color: 'white' }}>
-            <div className="brand-icon">💙</div>
-            PeerSupport
           </div>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem', margin: 0 }}>
-            © 2026 Digital Peer Support Platform — Built with MERN Stack by MANASHA P
-          </p>
-        </Container>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section style={{
+        padding: '80px 0',
+        background: `linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.primaryDark} 100%)`,
+        color: theme.colors.white
+      }}>
+        <div style={globalStyles.container}>
+          <div style={{ textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
+            <h2 style={{
+              fontSize: '36px',
+              fontWeight: 700,
+              color: theme.colors.white,
+              marginBottom: '20px'
+            }}>
+              Ready to Start Your Journey?
+            </h2>
+            <p style={{
+              fontSize: '18px',
+              color: 'rgba(255,255,255,0.9)',
+              marginBottom: '32px'
+            }}>
+              Join thousands of others who have found support through PeerBridge
+            </p>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <button
+                onClick={handleGetStarted}
+                style={{
+                  ...globalStyles.button.primary,
+                  background: theme.colors.white,
+                  color: theme.colors.primary,
+                  padding: '16px 32px',
+                  fontSize: '16px'
+                }}
+              >
+                Get Started Now
+                <PencilIcon name="check" size={18} color={theme.colors.primary} />
+              </button>
+              <button
+                onClick={() => navigate('/login')}
+                style={{
+                  ...globalStyles.button.secondary,
+                  background: 'transparent',
+                  color: theme.colors.white,
+                  borderColor: 'rgba(255,255,255,0.3)',
+                  padding: '16px 32px',
+                  fontSize: '16px'
+                }}
+              >
+                Sign In
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer style={{
+        padding: '60px 0 30px',
+        background: theme.colors.gray900,
+        color: theme.colors.white
+      }}>
+        <div style={globalStyles.container}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr 1fr 1fr',
+            gap: '40px',
+            marginBottom: '40px'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  background: theme.colors.white,
+                  borderRadius: theme.borderRadius.md,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <PencilIcon name="messages" size={24} color={theme.colors.primary} />
+                </div>
+                <span style={{
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: theme.colors.white
+                }}>
+                  PeerBridge
+                </span>
+              </div>
+              <p style={{
+                fontSize: '14px',
+                color: theme.colors.gray400,
+                lineHeight: 1.6,
+                marginBottom: '20px'
+              }}>
+                Your safe space for anonymous peer support. Connect, share, and heal together.
+              </p>
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: '16px', fontWeight: 600, color: theme.colors.white, marginBottom: '20px' }}>
+                Quick Links
+              </h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {['About Us', 'How It Works', 'Supporters', 'FAQ'].map(item => (
+                  <li key={item} style={{ marginBottom: '12px' }}>
+                    <a href="#" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
+                      {item}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: '16px', fontWeight: 600, color: theme.colors.white, marginBottom: '20px' }}>
+                Resources
+              </h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {['Blog', 'Guides', 'Community', 'Support'].map(item => (
+                  <li key={item} style={{ marginBottom: '12px' }}>
+                    <a href="#" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
+                      {item}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: '16px', fontWeight: 600, color: theme.colors.white, marginBottom: '20px' }}>
+                Legal
+              </h4>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Contact'].map(item => (
+                  <li key={item} style={{ marginBottom: '12px' }}>
+                    <a href="#" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
+                      {item}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div style={{
+            paddingTop: '30px',
+            borderTop: `1px solid ${theme.colors.gray800}`,
+            textAlign: 'center',
+            color: theme.colors.gray500,
+            fontSize: '14px'
+          }}>
+            © 2024 PeerBridge. All rights reserved.
+          </div>
+        </div>
       </footer>
     </div>
   );
 }
+
+// Star component for ratings
+const Star = ({ filled }) => (
+  <span style={{
+    fontSize: '18px',
+    color: filled ? '#fbbf24' : theme.colors.gray300,
+    marginRight: '2px'
+  }}>
+    ★
+  </span>
+);

@@ -1,58 +1,42 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true
-  },
-  password: {
-    type: String,
-    required: true,
-    minlength: 6
-  },
-  role: {
-    type: String,
-    enum: ['user', 'peer_supporter', 'admin'],
-    default: 'user'
-  },
-  profile: {
-    age: Number,
-    gender: String,
-    bio: String,
-    avatar: String
-  },
-  isVerified: {
-    type: Boolean,
-    default: false
-  },
-  supporterProfile: {
-    expertise: [String],
-    availability: String,
-    rating: { type: Number, default: 0 },
-    totalSessions: { type: Number, default: 0 }
-  }
-}, {
-  timestamps: true
+const notificationSchema = new mongoose.Schema({
+  type: String, message: String, read: { type: Boolean, default: false },
+  relatedId: mongoose.Schema.Types.ObjectId, createdAt: { type: Date, default: Date.now }
 });
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+const userSchema = new mongoose.Schema({
+  name:       { type: String, required: true, trim: true },
+  email:      { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password:   { type: String, minlength: 6, select: false },
+  role:       { type: String, enum: ['user','supporter','admin'], default: 'user' },
+  userType:   { type: String },
+  isApproved: { type: Boolean, default: false },
+  bio:        { type: String, default: '' },
+  specialty:  { type: String, default: '' },
+  topics:     [String],
+  rating:     { average: { type: Number, default: 0 }, count: { type: Number, default: 0 } },
+  googleId:   { type: String },
+  avatar:     { type: String, default: '' },
+  notifications: [notificationSchema],
+  isActive:   { type: Boolean, default: true },
+}, { timestamps: true });
+
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function (candidate) {
+  return bcrypt.compare(candidate, this.password);
+};
+
+userSchema.methods.addNotification = async function (type, message, relatedId = null) {
+  this.notifications.unshift({ type, message, relatedId });
+  if (this.notifications.length > 50) this.notifications = this.notifications.slice(0, 50);
+  await this.save();
 };
 
 module.exports = mongoose.model('User', userSchema);
