@@ -5,9 +5,7 @@ const { OAuth2Client } = require('google-auth-library');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// @desc    Register user or supporter
-// @route   POST /api/auth/register
-// @access  Public
+// ==================== REGISTER ====================
 exports.register = async (req, res) => {
   try {
     const { name, email, password, role, userType, topics, bio, experience, qualifications } = req.body;
@@ -75,9 +73,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
+// ==================== LOGIN ====================
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -137,12 +133,14 @@ exports.login = async (req, res) => {
   }
 };
 
-// @desc    Google OAuth authentication
-// @route   POST /api/auth/google
-// @access  Public
+// ==================== GOOGLE AUTH ====================
 exports.googleAuth = async (req, res) => {
   try {
     const { credential } = req.body;
+    
+    console.log('📱 Google auth endpoint hit');
+    console.log('Credential type:', typeof credential);
+    console.log('Credential first 50 chars:', credential?.substring(0, 50));
     
     if (!credential) {
       return res.status(400).json({ 
@@ -151,24 +149,41 @@ exports.googleAuth = async (req, res) => {
       });
     }
 
-    console.log('🔍 Verifying Google token...');
+    // Make sure credential is a string
+    if (typeof credential !== 'string') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid credential format. Expected string.' 
+      });
+    }
+
+    // Check if it looks like a JWT (has dots)
+    if (!credential.includes('.')) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid credential format. Not a JWT token.' 
+      });
+    }
+
+    console.log('Verifying with client ID:', process.env.GOOGLE_CLIENT_ID);
     
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
-    const { sub: googleId, email, name, picture: avatar } = ticket.getPayload();
-    console.log('✅ Google user verified:', email);
+    const payload = ticket.getPayload();
+    console.log('✅ Token verified for:', payload.email);
+    
+    const { sub: googleId, email, name, picture } = payload;
 
-    let user = await User.findOne({ 
-      $or: [{ googleId }, { email: email.toLowerCase() }] 
-    });
-
+    let user = await User.findOne({ email: email.toLowerCase() });
+    
     if (user) {
+      console.log('Existing user found:', user.email);
       if (!user.googleId) {
         user.googleId = googleId;
-        if (avatar) user.avatar = avatar;
+        if (picture) user.avatar = picture;
         await user.save();
       }
       
@@ -178,35 +193,49 @@ exports.googleAuth = async (req, res) => {
           message: 'Your supporter application is still pending approval.' 
         });
       }
-      
-      return sendTokenResponse(user, 200, res);
+    } else {
+      console.log('Creating new user for:', email);
+      user = new User({
+        name,
+        email: email.toLowerCase(),
+        googleId,
+        avatar: picture || '',
+        role: ROLES.USER,
+        isApproved: true,
+        isActive: true,
+        userType: 'College Student'
+      });
+      await user.save();
     }
 
-    user = await User.create({
-      name,
-      email: email.toLowerCase(),
-      googleId,
-      avatar: avatar || '',
-      role: ROLES.USER,
-      isApproved: true,
-      isActive: true,
-      userType: 'College Student'
-    });
-
-    console.log('✅ New user created via Google:', user.email);
-    sendTokenResponse(user, 201, res);
+    sendTokenResponse(user, 200, res);
   } catch (err) {
     console.error('❌ Google auth error:', err);
+    console.error('Error name:', err.name);
+    console.error('Error message:', err.message);
+    
+    // Send more specific error messages
+    if (err.message.includes('jwt.split')) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid Google token format. Please try again.' 
+      });
+    }
+    
+    if (err.message.includes('audience')) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Google Client ID mismatch. Please check configuration.' 
+      });
+    }
+    
     res.status(500).json({ 
       success: false, 
-      message: 'Google sign-in failed. Please try again.' 
+      message: 'Google sign-in failed: ' + err.message 
     });
   }
 };
-
-// @desc    Set user role
-// @route   PUT /api/auth/set-role
-// @access  Private
+// ==================== SET ROLE ====================
 exports.setRole = async (req, res) => {
   try {
     const { role } = req.body;
@@ -245,9 +274,7 @@ exports.setRole = async (req, res) => {
   }
 };
 
-// @desc    Set user type
-// @route   PUT /api/auth/set-user-type
-// @access  Private
+// ==================== SET USER TYPE ====================
 exports.setUserType = async (req, res) => {
   try {
     const { userType } = req.body;
@@ -272,9 +299,7 @@ exports.setUserType = async (req, res) => {
   }
 };
 
-// @desc    Get current user profile
-// @route   GET /api/auth/me
-// @access  Private
+// ==================== GET ME ====================
 exports.getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id)
@@ -295,9 +320,7 @@ exports.getMe = async (req, res) => {
   }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/auth/profile
-// @access  Private
+// ==================== UPDATE PROFILE ====================
 exports.updateProfile = async (req, res) => {
   try {
     const allowedFields = [
@@ -312,22 +335,11 @@ exports.updateProfile = async (req, res) => {
       }
     });
 
-    if (req.body.topics && Array.isArray(req.body.topics)) {
-      updates.topics = req.body.topics;
-    }
-
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id, 
       updates, 
       { new: true, runValidators: true }
     ).select('-password');
-
-    if (!updatedUser) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
-      });
-    }
 
     res.json({ success: true, user: updatedUser });
   } catch (err) {
@@ -336,9 +348,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Change password
-// @route   PUT /api/auth/change-password
-// @access  Private
+// ==================== CHANGE PASSWORD ====================
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -352,21 +362,7 @@ exports.changePassword = async (req, res) => {
 
     const user = await User.findById(req.user._id).select('+password');
 
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
-      });
-    }
-
     if (user.password) {
-      if (!currentPassword) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Please provide current password' 
-        });
-      }
-
       const isMatch = await user.comparePassword(currentPassword);
       if (!isMatch) {
         return res.status(400).json({ 
@@ -386,9 +382,7 @@ exports.changePassword = async (req, res) => {
   }
 };
 
-// @desc    Logout user
-// @route   POST /api/auth/logout
-// @access  Private
+// ==================== LOGOUT ====================
 exports.logout = async (req, res) => {
   try {
     res.json({ 
@@ -400,3 +394,16 @@ exports.logout = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// ============ DEBUG EXPORTS ============
+console.log('📤 Exporting authController functions:');
+console.log('register:', typeof exports.register);
+console.log('login:', typeof exports.login);
+console.log('googleAuth:', typeof exports.googleAuth);
+console.log('setRole:', typeof exports.setRole);
+console.log('setUserType:', typeof exports.setUserType);
+console.log('getMe:', typeof exports.getMe);
+console.log('updateProfile:', typeof exports.updateProfile);
+console.log('changePassword:', typeof exports.changePassword);
+console.log('logout:', typeof exports.logout);
+console.log('===================================');

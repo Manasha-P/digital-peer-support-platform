@@ -1,21 +1,5 @@
-// User Roles
-const ROLES = { 
-  USER: 'user', 
-  SUPPORTER: 'supporter', 
-  ADMIN: 'admin' 
-};
-
-// Session Status
-const SESSION_STATUS = {
-  PENDING: 'pending', 
-  UPCOMING: 'upcoming', 
-  COMPLETED: 'completed',
-  REJECTED: 'rejected', 
-  CANCELLED: 'cancelled'
-};
-
-// User Types for Registration
-const USER_TYPES = [
+// User Types
+export const USER_TYPES = [
   'College Student',
   'High School Student',
   'Working Professional',
@@ -24,7 +8,7 @@ const USER_TYPES = [
 ];
 
 // Topics by User Type
-const TOPICS_BY_USER_TYPE = {
+export const TOPICS_BY_USER_TYPE = {
   'College Student': [
     'Academic Stress', 
     'Exam Anxiety', 
@@ -112,64 +96,8 @@ const TOPICS_BY_USER_TYPE = {
   ]
 };
 
-// Support Topics for Supporters (Backward Compatibility)
-const SUPPORT_TOPICS = [
-  ...TOPICS_BY_USER_TYPE['College Student'],
-  ...TOPICS_BY_USER_TYPE['High School Student'],
-  ...TOPICS_BY_USER_TYPE['Working Professional'],
-  ...TOPICS_BY_USER_TYPE['Graduate Student'],
-  ...TOPICS_BY_USER_TYPE['Other']
-].filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-
-// Notification Types
-const NOTIFICATION_TYPES = {
-  SESSION_REQUEST: 'session_request', 
-  SESSION_UPDATE: 'session_update',
-  MESSAGE: 'message', 
-  APPROVAL: 'approval', 
-  SUPPORTER_APPLICATION: 'supporter_application'
-};
-
-// Message Events for Socket.io
-const MESSAGE_EVENTS = {
-  CONNECT: 'connection',
-  DISCONNECT: 'disconnect',
-  JOIN: 'join',
-  SEND_MESSAGE: 'sendMessage',
-  RECEIVE_MESSAGE: 'receiveMessage',
-  TYPING: 'typing',
-  STOP_TYPING: 'stopTyping',
-  READ: 'read'
-};
-
-// Pagination Defaults
-const PAGINATION = {
-  DEFAULT_PAGE: 1,
-  DEFAULT_LIMIT: 20,
-  MAX_LIMIT: 100
-};
-
-// Time Constants (in milliseconds)
-const TIME = {
-  ONE_MINUTE: 60 * 1000,
-  ONE_HOUR: 60 * 60 * 1000,
-  ONE_DAY: 24 * 60 * 60 * 1000,
-  ONE_WEEK: 7 * 24 * 60 * 60 * 1000,
-  ONE_MONTH: 30 * 24 * 60 * 60 * 1000
-};
-
-// Session Durations (in minutes)
-const SESSION_DURATIONS = [30, 45, 60];
-
-// Rating Scale
-const RATING = {
-  MIN: 1,
-  MAX: 5,
-  DEFAULT: 0
-};
-
-// File Upload Constants
-const FILE_UPLOAD = {
+// File upload constants
+export const FILE_UPLOAD = {
   MAX_SIZE: 10 * 1024 * 1024, // 10MB
   ALLOWED_TYPES: [
     'image/jpeg', 
@@ -180,32 +108,45 @@ const FILE_UPLOAD = {
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'text/plain'
-  ],
-  ALLOWED_EXTENSIONS: [
-    '.jpg', 
-    '.jpeg', 
-    '.png', 
-    '.gif', 
-    '.webp', 
-    '.pdf', 
-    '.doc', 
-    '.docx', 
-    '.txt'
   ]
 };
 
-// Export all constants (CommonJS for backend)
-module.exports = { 
-  ROLES, 
-  SESSION_STATUS, 
-  USER_TYPES, 
-  SUPPORT_TOPICS,
-  TOPICS_BY_USER_TYPE,
-  NOTIFICATION_TYPES,
-  MESSAGE_EVENTS,
-  PAGINATION,
-  TIME,
-  SESSION_DURATIONS,
-  RATING,
-  FILE_UPLOAD
+// Session status constants
+export const SESSION_STATUS = {
+  PENDING: 'pending',
+  UPCOMING: 'upcoming',
+  COMPLETED: 'completed',
+  REJECTED: 'rejected',
+  CANCELLED: 'cancelled'
+};
+
+// Notification types
+export const NOTIFICATION_TYPES = {
+  SESSION_REQUEST: 'session_request',
+  SESSION_UPDATE: 'session_update',
+  MESSAGE: 'message',
+  APPROVAL: 'approval',
+  SUPPORTER_APPLICATION: 'supporter_application'
+};
+
+// Message Events for Socket.io
+export const MESSAGE_EVENTS = {
+  CONNECT: 'connection',
+  DISCONNECT: 'disconnect',
+  JOIN: 'join',
+  SEND_MESSAGE: 'sendMessage',
+  RECEIVE_MESSAGE: 'receiveMessage',
+  TYPING: 'typing',
+  STOP_TYPING: 'stopTyping',
+  READ: 'read'
+};
+
+// Session Durations (in minutes)
+export const SESSION_DURATIONS = [30, 45, 60];
+
+// Rating Scale
+export const RATING = {
+  MIN: 1,
+  MAX: 5,
+  DEFAULT: 0
 };

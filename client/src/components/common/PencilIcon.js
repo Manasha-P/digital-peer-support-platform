@@ -303,9 +303,75 @@ const PencilIcon = ({ name, size = 24, color = 'currentColor', strokeWidth = 1.5
         <path d="M9.87868 9.87868C9.33579 10.4216 9 11.1716 9 12C9 13.6569 10.3431 15 12 15C12.8284 15 13.5784 14.6642 14.1213 14.1213" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
       </svg>
     ),
+    // Add these to your icons object in PencilIcon.js
+
+'attachment': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M21.44 11.05L12.25 20.24C11.1242 21.3658 9.59723 22 8.00502 22C6.41281 22 4.88584 21.3658 3.76002 20.24C2.63419 19.1142 2 17.5872 2 15.995C2 14.4028 2.63419 12.8758 3.76002 11.75L12.33 3.18C13.0806 2.42945 14.1032 2 15.17 2C16.2368 2 17.2594 2.42945 18.01 3.18C18.7606 3.9306 19.19 4.95323 19.19 6.02C19.19 7.08678 18.7606 8.10941 18.01 8.86L9.42002 17.43C9.03421 17.8158 8.50491 18.0315 7.95252 18.0315C7.40012 18.0315 6.87082 17.8158 6.48502 17.43C6.09921 17.0442 5.88354 16.5149 5.88354 15.9625C5.88354 15.4101 6.09921 14.8808 6.48502 14.495L15.07 5.925" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+),
+
+'image': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="2" width="20" height="20" rx="2" stroke={color} strokeWidth={strokeWidth} fill="none"/>
+    <circle cx="8.5" cy="8.5" r="2.5" stroke={color} strokeWidth={strokeWidth} fill="none"/>
+    <path d="M22 16L18 12L10 20L6 16L2 20" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+),
+
+'pdf': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <path d="M14 2V8H20" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 15H15" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    <path d="M9 18H13" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+  </svg>
+),
+
+'doc': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <path d="M14 2V8H20" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16 13H8" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    <path d="M16 17H8" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+    <path d="M10 9H9H8" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+  </svg>
+),
+
+'text': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 7V4H20V7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 20V4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M8 20H16" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+  </svg>
+),
+
+'file': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V9L13 2Z" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <path d="M13 2V9H20" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+),
+
+'upload': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 16V4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M5 11L12 4L19 11" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M5 20H19" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+  </svg>
+),
+
+'download': (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 16V4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M5 11L12 18L19 11" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M5 20H19" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"/>
+  </svg>
+)
   };
 
   return icons[name] || null;
 };
+
 
 export default PencilIcon;

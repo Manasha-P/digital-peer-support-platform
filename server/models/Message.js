@@ -1,5 +1,12 @@
 const mongoose = require('mongoose');
 
+const fileSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  url: { type: String, required: true },
+  type: { type: String, required: true },
+  size: { type: Number, required: true }
+}, { _id: false });
+
 const messageSchema = new mongoose.Schema({
   conversationId: { 
     type: String, 
@@ -18,9 +25,9 @@ const messageSchema = new mongoose.Schema({
   },
   text: { 
     type: String, 
-    required: true, 
     trim: true 
   },
+  file: fileSchema,
   read: { 
     type: Boolean, 
     default: false 

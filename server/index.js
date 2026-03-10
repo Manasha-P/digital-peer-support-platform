@@ -2,21 +2,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const http = require('http');
 const { initSocket } = require('./config/socket');
 
-// Load env vars - THIS MUST BE AT THE VERY TOP
+// Load env vars
 dotenv.config();
-
-// Support both MONGO_URI and MONGODB_URI
-const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
-
-// Debug: Check if env vars are loaded
-console.log('🔍 Checking environment variables:');
-console.log('📁 MONGO_URI:', MONGO_URI ? '✅ Found' : '❌ Missing');
-console.log('🔑 JWT_SECRET:', process.env.JWT_SECRET ? '✅ Found' : '❌ Missing');
-console.log('🚪 PORT:', process.env.PORT || '5000 (default)');
-console.log('🌐 CLIENT_URL:', process.env.CLIENT_URL || 'http://localhost:3000');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -39,27 +30,18 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection
-if (!MONGO_URI) {
-  console.error('❌ FATAL ERROR: MONGO_URI is not defined in .env file');
-  console.log('📝 Please add to your .env file:');
-  console.log('   MONGO_URI=mongodb://localhost:27017/peer-support-db');
-  console.log('   or');
-  console.log('   MONGODB_URI=mongodb://localhost:27017/peer-support-db');
-  process.exit(1);
-}
+// Serve static files from uploads directory - THIS MUST COME BEFORE API ROUTES
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-mongoose.connect(MONGO_URI)
+// Database connection
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB Connected Successfully'))
   .catch(err => {
     console.error('❌ MongoDB Connection Error:', err.message);
-    console.log('💡 Make sure MongoDB is installed and running:');
-    console.log('   - Windows: Run "mongod" in command prompt');
-    console.log('   - Or install MongoDB Community Edition');
     process.exit(1);
   });
 
-// Routes
+// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/sessions', sessionRoutes);
@@ -75,11 +57,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
   res.status(404).json({ 
     success: false, 
-    message: `Route ${req.originalUrl} not found` 
+    message: `API route ${req.originalUrl} not found` 
   });
 });
 
@@ -92,17 +74,10 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
-// Temporary test endpoint for Google Auth
-app.post('/api/test-google', (req, res) => {
-  console.log('Test Google endpoint hit');
-  res.json({ 
-    success: true, 
-    message: 'Test endpoint working',
-    googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Present' : 'Missing'
-  });
-});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📁 Uploads directory: ${path.join(__dirname, 'uploads')}`);
 });

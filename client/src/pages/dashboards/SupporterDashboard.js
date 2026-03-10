@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Sidebar from '../../components/Sidebar/Sidebar';
@@ -7,6 +7,7 @@ import PencilIcon from '../../components/common/PencilIcon';
 import { theme } from '../../styles/theme';
 import { sessionAPI, messageAPI, authAPI } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { USER_TYPES, TOPICS_BY_USER_TYPE } from '../../utils/constants';
 
 const NAV = [
   { path: '/supporter', icon: 'dashboard', label: 'Dashboard', end: true },
@@ -15,12 +16,6 @@ const NAV = [
   { path: '/supporter/messages', icon: 'messages', label: 'Messages' },
   { path: '/supporter/notifications', icon: 'notifications', label: 'Session Requests' },
   { path: '/supporter/settings', icon: 'settings', label: 'Settings' },
-];
-
-const TOPICS = [
-  'Anxiety', 'Depression', 'Stress', 'Relationships', 'Academic', 
-  'Career', 'Loneliness', 'Grief', 'Self-esteem', 'Mindfulness', 
-  'Family', 'Burnout'
 ];
 
 // ==================== ACCEPT/REJECT BUTTONS ====================
@@ -429,7 +424,7 @@ function Overview({ sessions, onRefresh }) {
               color: theme.colors.success,
               marginBottom: '4px'
             }}>
-              {sessions.filter(s => s.user).length}
+              {[...new Set(sessions.map(s => s.user?._id).filter(Boolean))].length}
             </div>
             <div style={{ fontSize: '13px', color: theme.colors.gray600 }}>
               Unique Clients
@@ -443,8 +438,8 @@ function Overview({ sessions, onRefresh }) {
               color: theme.colors.warning,
               marginBottom: '4px'
             }}>
-              {sessions.reduce((sum, s) => sum + (s.rating?.score || 0), 0) / 
-               sessions.filter(s => s.rating?.score).length || 0}
+              {(sessions.reduce((sum, s) => sum + (s.rating?.score || 0), 0) / 
+               (sessions.filter(s => s.rating?.score).length || 1)).toFixed(1)}
             </div>
             <div style={{ fontSize: '13px', color: theme.colors.gray600 }}>
               Average Rating
@@ -809,17 +804,19 @@ function Clients({ sessions }) {
   );
 }
 
-// ==================== MESSAGES SECTION ====================
+// ==================== MESSAGES SECTION WITH WORKING FILE UPLOAD ====================
 function Messages() {
   const { user } = useAuth();
   const location = useLocation();
   const bottomRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [convs, setConvs] = useState([]);
   const [active, setActive] = useState(null);
   const [msgs, setMsgs] = useState([]);
   const [txt, setTxt] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const loadConversations = async () => {
     try {
@@ -906,38 +903,148 @@ function Messages() {
     }
   };
 
+  // Document Upload Function
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !active) return;
+
+    // Check file size
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    // Allowed file types
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('File type not supported. Please upload images, PDF, DOC, or TXT files.');
+      return;
+    }
+
+    setUploading(true);
+
+    // Create FormData
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('recipientId', active.partner._id);
+
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Uploading file to:', `${process.env.REACT_APP_API_URL}/messages/upload`);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/messages/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      console.log('Upload response:', data);
+
+      if (data.success) {
+        // Add the real file message from server
+        setMsgs(prev => [...prev, data.message]);
+        
+        // Refresh conversations to update last message
+        loadConversations();
+        
+        toast.success('File uploaded successfully');
+      } else {
+        toast.error(data.message || 'File upload failed');
+      }
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error('Failed to connect to server. Please try again.');
+    } finally {
+      setUploading(false);
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const getFileIcon = (fileType) => {
+    if (fileType?.startsWith('image/')) return 'image';
+    if (fileType === 'application/pdf') return 'pdf';
+    if (fileType?.includes('word')) return 'doc';
+    if (fileType === 'text/plain') return 'text';
+    return 'file';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
   return (
-    <div style={{ padding: '24px', background: theme.colors.gray50, height: 'calc(100vh - 80px)' }}>
+    <div style={{ 
+      padding: '24px', 
+      background: theme.colors.gray50, 
+      height: 'calc(100vh - 100px)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
       <div style={{
         display: 'flex',
         height: '100%',
         background: theme.colors.white,
         borderRadius: theme.borderRadius.lg,
         border: `1px solid ${theme.colors.gray200}`,
-        overflow: 'hidden'
+        overflow: 'hidden',
+        boxShadow: theme.shadows.md
       }}>
-        {/* Conversations List */}
+        {/* Left Sidebar - Conversations List */}
         <div style={{
-          width: '300px',
+          width: '320px',
           borderRight: `1px solid ${theme.colors.gray200}`,
           display: 'flex',
           flexDirection: 'column',
-          background: theme.colors.gray50
+          background: theme.colors.white
         }}>
           <div style={{
-            padding: '16px',
+            padding: '20px',
             borderBottom: `1px solid ${theme.colors.gray200}`,
             background: theme.colors.white
           }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: theme.colors.primary, margin: 0 }}>
+            <h3 style={{ 
+              fontSize: '16px', 
+              fontWeight: 600, 
+              color: theme.colors.primary, 
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <PencilIcon name="messages" size={18} color={theme.colors.primary} />
               Conversations
             </h3>
           </div>
+          
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {convs.length === 0 ? (
-              <div style={{ padding: '24px', textAlign: 'center', color: theme.colors.gray500 }}>
+              <div style={{ 
+                padding: '40px 20px', 
+                textAlign: 'center', 
+                color: theme.colors.gray500 
+              }}>
                 <PencilIcon name="messages" size={32} color={theme.colors.gray400} />
-                <p style={{ marginTop: '12px' }}>No conversations yet</p>
+                <p style={{ marginTop: '12px', fontSize: '13px' }}>
+                  No conversations yet
+                </p>
+                <p style={{ fontSize: '11px', marginTop: '4px' }}>
+                  Start by messaging a client
+                </p>
               </div>
             ) : (
               convs.map(c => (
@@ -947,61 +1054,88 @@ function Messages() {
                   style={{
                     display: 'flex',
                     gap: '12px',
-                    padding: '12px 16px',
+                    padding: '16px 20px',
                     cursor: 'pointer',
                     borderBottom: `1px solid ${theme.colors.gray200}`,
                     background: active?.partner?._id === c.partner._id 
-                      ? `${theme.colors.primary}10` 
+                      ? `${theme.colors.primary}08` 
                       : 'transparent',
                     transition: 'background 0.2s'
                   }}
                 >
-                  <Avatar name={c.partner.name} size={40} />
+                  <Avatar name={c.partner.name} size={44} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      fontSize: '14px',
-                      fontWeight: 600,
-                      color: theme.colors.gray800,
-                      marginBottom: '2px'
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '4px'
                     }}>
-                      {c.partner.name}
+                      <span style={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: theme.colors.gray800
+                      }}>
+                        {c.partner.name}
+                      </span>
+                      {c.lastMessage && (
+                        <span style={{
+                          fontSize: '10px',
+                          color: theme.colors.gray500
+                        }}>
+                          {new Date(c.lastMessage.createdAt).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                      )}
                     </div>
-                    {c.lastMessage && (
-                      <div style={{
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <span style={{
                         fontSize: '12px',
                         color: theme.colors.gray600,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        textOverflow: 'ellipsis',
+                        maxWidth: '180px'
                       }}>
-                        {c.lastMessage.text}
-                      </div>
-                    )}
-                  </div>
-                  {c.unread > 0 && (
-                    <div style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      background: theme.colors.warning,
-                      color: theme.colors.white,
-                      fontSize: '10px',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      {c.unread}
+                        {c.lastMessage?.text || 'No messages yet'}
+                      </span>
+                      {c.unread > 0 && (
+                        <span style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          background: theme.colors.warning,
+                          color: theme.colors.white,
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          {c.unread}
+                        </span>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Right Side - Chat Area */}
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          background: theme.colors.white
+        }}>
           {!active ? (
             <div style={{
               flex: 1,
@@ -1009,88 +1143,251 @@ function Messages() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              background: theme.colors.gray50
+              background: theme.colors.white,
+              padding: '40px'
             }}>
-              <PencilIcon name="messages" size={48} color={theme.colors.gray400} />
-              <p style={{ marginTop: '16px', color: theme.colors.gray600 }}>
-                Select a conversation to start messaging
+              <PencilIcon name="messages" size={64} color={theme.colors.gray300} />
+              <h3 style={{ 
+                fontSize: '18px', 
+                fontWeight: 600, 
+                color: theme.colors.gray700,
+                marginTop: '20px',
+                marginBottom: '8px'
+              }}>
+                Your Messages
+              </h3>
+              <p style={{ 
+                fontSize: '14px', 
+                color: theme.colors.gray500,
+                textAlign: 'center',
+                maxWidth: '300px'
+              }}>
+                Select a conversation from the left to start chatting
               </p>
             </div>
           ) : (
             <>
               {/* Chat Header */}
               <div style={{
-                padding: '16px',
+                padding: '16px 24px',
                 borderBottom: `1px solid ${theme.colors.gray200}`,
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
                 background: theme.colors.white
               }}>
-                <Avatar name={active.partner.name} size={40} />
+                <Avatar name={active.partner.name} size={44} />
                 <div>
-                  <h4 style={{ fontSize: '15px', fontWeight: 600, color: theme.colors.gray800, margin: 0 }}>
+                  <h4 style={{ 
+                    fontSize: '16px', 
+                    fontWeight: 600, 
+                    color: theme.colors.gray800, 
+                    margin: 0 
+                  }}>
                     {active.partner.name}
                   </h4>
-                  <span style={{ fontSize: '12px', color: theme.colors.success }}>● Online</span>
+                  <span style={{ 
+                    fontSize: '12px', 
+                    color: theme.colors.success,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginTop: '2px'
+                  }}>
+                    <span style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      background: theme.colors.success,
+                      display: 'inline-block'
+                    }} />
+                    Online
+                  </span>
                 </div>
               </div>
 
-              {/* Messages */}
+              {/* Messages Container */}
               <div style={{
                 flex: 1,
-                padding: '20px',
+                padding: '24px',
                 overflowY: 'auto',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px',
+                gap: '16px',
                 background: theme.colors.gray50
               }}>
                 {loading ? (
-                  <Spinner />
-                ) : msgs.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px' }}>
+                    <Spinner />
+                  </div>
+                ) : msgs.length === 0 ? (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '40px',
+                    background: theme.colors.white,
+                    borderRadius: theme.borderRadius.lg,
+                    border: `1px solid ${theme.colors.gray200}`
+                  }}>
                     <PencilIcon name="messages" size={32} color={theme.colors.gray400} />
-                    <p style={{ color: theme.colors.gray500, marginTop: '12px' }}>
+                    <p style={{ 
+                      color: theme.colors.gray500, 
+                      marginTop: '12px',
+                      fontSize: '14px'
+                    }}>
                       No messages yet. Say hello!
                     </p>
                   </div>
                 ) : (
-                  msgs.map(m => {
+                  msgs.map((m, index) => {
                     const isMe = m.sender?._id === user._id;
+                    const showDate = index === 0 || 
+                      new Date(m.createdAt).toDateString() !== new Date(msgs[index - 1].createdAt).toDateString();
+                    
                     return (
-                      <div
-                        key={m._id}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: isMe ? 'flex-end' : 'flex-start'
-                        }}
-                      >
-                        <div style={{
-                          maxWidth: '70%',
-                          padding: '12px 16px',
-                          borderRadius: isMe 
-                            ? '16px 16px 4px 16px' 
-                            : '16px 16px 16px 4px',
-                          background: isMe ? theme.colors.primary : theme.colors.white,
-                          color: isMe ? theme.colors.white : theme.colors.gray800,
-                          fontSize: '14px',
-                          boxShadow: theme.shadows.sm
-                        }}>
-                          {m.text}
-                        </div>
-                        <span style={{
-                          fontSize: '10px',
-                          color: theme.colors.gray500,
-                          marginTop: '2px'
-                        }}>
-                          {new Date(m.createdAt).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                      </div>
+                      <React.Fragment key={m._id}>
+                        {showDate && (
+                          <div style={{
+                            textAlign: 'center',
+                            margin: '8px 0'
+                          }}>
+                            <span style={{
+                              fontSize: '11px',
+                              color: theme.colors.gray500,
+                              background: theme.colors.white,
+                              padding: '4px 12px',
+                              borderRadius: theme.borderRadius.full,
+                              border: `1px solid ${theme.colors.gray200}`
+                            }}>
+                              {new Date(m.createdAt).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {/* File Message */}
+                        {m.file ? (
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: isMe ? 'flex-end' : 'flex-start'
+                          }}>
+                            <div style={{
+                              maxWidth: '70%',
+                              padding: '16px',
+                              borderRadius: isMe 
+                                ? '16px 16px 4px 16px' 
+                                : '16px 16px 16px 4px',
+                              background: isMe ? theme.colors.primary : theme.colors.white,
+                              color: isMe ? theme.colors.white : theme.colors.gray800,
+                              boxShadow: theme.shadows.sm,
+                              border: isMe ? 'none' : `1px solid ${theme.colors.gray200}`
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '8px',
+                                  background: isMe ? 'rgba(255,255,255,0.2)' : theme.colors.gray100,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}>
+                                  <PencilIcon 
+                                    name={getFileIcon(m.file.type)} 
+                                    size={20} 
+                                    color={isMe ? theme.colors.white : theme.colors.primary} 
+                                  />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ 
+                                    fontSize: '13px', 
+                                    fontWeight: 600,
+                                    color: isMe ? theme.colors.white : theme.colors.gray800,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {m.file.name}
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: '10px',
+                                    color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.gray500,
+                                    marginTop: '2px'
+                                  }}>
+                                    {formatFileSize(m.file.size)}
+                                  </div>
+                                </div>
+                                
+                                {/* Fixed download link with proper URL construction */}
+                                <a
+                                  href={m.file.url.startsWith('http') 
+                                    ? m.file.url 
+                                    : `${process.env.REACT_APP_API_URL.replace('/api', '')}${m.file.url}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    color: isMe ? theme.colors.white : theme.colors.primary,
+                                    textDecoration: 'none'
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <PencilIcon name="download" size={18} color={isMe ? theme.colors.white : theme.colors.primary} />
+                                </a>
+                              </div>
+                            </div>
+                            <span style={{
+                              fontSize: '10px',
+                              color: theme.colors.gray500,
+                              marginTop: '4px',
+                              marginLeft: isMe ? 0 : '8px',
+                              marginRight: isMe ? '8px' : 0
+                            }}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          /* Text Message */
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: isMe ? 'flex-end' : 'flex-start'
+                          }}>
+                            <div style={{
+                              maxWidth: '70%',
+                              padding: '12px 16px',
+                              borderRadius: isMe 
+                                ? '16px 16px 4px 16px' 
+                                : '16px 16px 16px 4px',
+                              background: isMe ? theme.colors.primary : theme.colors.white,
+                              color: isMe ? theme.colors.white : theme.colors.gray800,
+                              fontSize: '14px',
+                              lineHeight: 1.5,
+                              boxShadow: theme.shadows.sm,
+                              border: isMe ? 'none' : `1px solid ${theme.colors.gray200}`
+                            }}>
+                              {m.text}
+                            </div>
+                            <span style={{
+                              fontSize: '10px',
+                              color: theme.colors.gray500,
+                              marginTop: '4px',
+                              marginLeft: isMe ? 0 : '8px',
+                              marginRight: isMe ? '8px' : 0
+                            }}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </div>
+                        )}
+                      </React.Fragment>
                     );
                   })
                 )}
@@ -1099,17 +1396,51 @@ function Messages() {
 
               {/* Message Input */}
               <div style={{
-                padding: '16px',
+                padding: '20px 24px',
                 borderTop: `1px solid ${theme.colors.gray200}`,
                 display: 'flex',
                 gap: '12px',
-                background: theme.colors.white
+                background: theme.colors.white,
+                alignItems: 'center'
               }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                  accept="image/*,.pdf,.doc,.docx,.txt"
+                />
+                
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading || !active}
+                  style={{
+                    padding: '12px',
+                    background: uploading ? theme.colors.gray300 : theme.colors.gray100,
+                    color: theme.colors.gray700,
+                    border: `1px solid ${theme.colors.gray300}`,
+                    borderRadius: theme.borderRadius.md,
+                    cursor: uploading || !active ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Attach file"
+                >
+                  {uploading ? (
+                    <Spinner size={18} />
+                  ) : (
+                    <PencilIcon name="attachment" size={18} color={theme.colors.gray600} />
+                  )}
+                </button>
+
                 <input
                   placeholder="Type your message..."
                   value={txt}
                   onChange={e => setTxt(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  disabled={sending || uploading}
                   style={{
                     flex: 1,
                     padding: '12px 16px',
@@ -1119,21 +1450,23 @@ function Messages() {
                     background: theme.colors.gray50
                   }}
                 />
+
                 <button
                   onClick={sendMessage}
-                  disabled={!txt.trim() || sending}
+                  disabled={!txt.trim() || sending || uploading}
                   style={{
                     padding: '12px 24px',
-                    background: !txt.trim() || sending ? theme.colors.gray300 : theme.colors.primary,
+                    background: !txt.trim() || sending || uploading ? theme.colors.gray300 : theme.colors.primary,
                     color: theme.colors.white,
                     border: 'none',
                     borderRadius: theme.borderRadius.md,
                     fontSize: '14px',
                     fontWeight: 600,
-                    cursor: !txt.trim() || sending ? 'not-allowed' : 'pointer',
+                    cursor: !txt.trim() || sending || uploading ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    transition: 'all 0.2s'
                   }}
                 >
                   <PencilIcon name="send" size={16} color={theme.colors.white} />
@@ -1147,7 +1480,6 @@ function Messages() {
     </div>
   );
 }
-
 // ==================== NOTIFICATIONS SECTION ====================
 function Notifications({ sessions, onRefresh }) {
   const pending = sessions.filter(s => s.status === 'pending');
@@ -1225,16 +1557,20 @@ function Notifications({ sessions, onRefresh }) {
   );
 }
 
-// ==================== SETTINGS SECTION ====================
+// ==================== SETTINGS SECTION WITH DYNAMIC TOPICS ====================
 function Settings() {
   const { user, updateUser } = useAuth();
   const [form, setForm] = useState({
     name: user?.name || '',
     bio: user?.bio || '',
     specialty: user?.specialty || '',
-    topics: user?.topics || []
+    topics: user?.topics || [],
+    userType: user?.userType || 'College Student'
   });
   const [saving, setSaving] = useState(false);
+
+  // Get topics based on user type from imported constants
+  const availableTopics = TOPICS_BY_USER_TYPE[form.userType] || TOPICS_BY_USER_TYPE['Other'];
 
   async function save() {
     setSaving(true);
@@ -1283,10 +1619,38 @@ function Settings() {
 
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: theme.colors.gray700, marginBottom: '6px' }}>
+            Your Background
+          </label>
+          <select
+            value={form.userType}
+            onChange={e => {
+              setForm({ 
+                ...form, 
+                userType: e.target.value,
+                topics: [] // Reset topics when user type changes
+              });
+            }}
+            style={{
+              width: '100%',
+              padding: '12px',
+              border: `1px solid ${theme.colors.gray300}`,
+              borderRadius: theme.borderRadius.md,
+              fontSize: '14px',
+              background: theme.colors.white
+            }}
+          >
+            {USER_TYPES.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: theme.colors.gray700, marginBottom: '6px' }}>
             Specialty
           </label>
           <input
-            placeholder="e.g. Anxiety & Stress Specialist"
+            placeholder="e.g. Academic Stress & Career Guidance"
             value={form.specialty}
             onChange={e => setForm({ ...form, specialty: e.target.value })}
             style={{
@@ -1321,10 +1685,20 @@ function Settings() {
 
         <div style={{ marginBottom: '28px' }}>
           <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: theme.colors.gray700, marginBottom: '12px' }}>
-            Areas of Expertise
+            Areas of Expertise (select topics relevant to {form.userType})
           </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {TOPICS.map(t => (
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: '8px',
+            maxHeight: '300px',
+            overflowY: 'auto',
+            padding: '8px',
+            border: `1px solid ${theme.colors.gray200}`,
+            borderRadius: theme.borderRadius.md,
+            background: theme.colors.gray50
+          }}>
+            {availableTopics.map(t => (
               <span
                 key={t}
                 onClick={() => setForm(prev => ({
@@ -1339,7 +1713,7 @@ function Settings() {
                   fontSize: '13px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  background: form.topics.includes(t) ? theme.colors.primary : theme.colors.gray100,
+                  background: form.topics.includes(t) ? theme.colors.primary : theme.colors.white,
                   color: form.topics.includes(t) ? theme.colors.white : theme.colors.gray700,
                   border: form.topics.includes(t) ? 'none' : `1px solid ${theme.colors.gray300}`,
                   transition: 'all 0.2s'
@@ -1349,6 +1723,9 @@ function Settings() {
               </span>
             ))}
           </div>
+          <p style={{ fontSize: '12px', color: theme.colors.gray500, marginTop: '8px' }}>
+            Selected: {form.topics.length} topics
+          </p>
         </div>
 
         <button
@@ -1384,7 +1761,7 @@ export default function SupporterDashboard() {
       setSessions(response.data.sessions || []);
     } catch (error) {
       console.error('Failed to load sessions:', error);
-      // Fallback data for demo
+      // Fallback data
       setSessions([
         {
           _id: '1',

@@ -16,9 +16,9 @@ const {
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
-router.post('/google', googleAuth);
+router.post('/google', googleAuth);  // Make sure this line exists
 
-// Protected routes (require authentication)
+// Protected routes
 router.use(protect);
 router.get('/me', getMe);
 router.put('/profile', updateProfile);

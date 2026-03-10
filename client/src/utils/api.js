@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { toast } from 'react-toastify';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -52,17 +51,13 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
-  googleAuth: (credential) => api.post('/auth/google', { credential }),
+  googleAuth: (data) => api.post('/auth/google', data), // Make sure this line exists
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.put('/auth/change-password', data),
   setRole: (role) => api.put('/auth/set-role', { role }),
   setUserType: (userType) => api.put('/auth/set-user-type', { userType }),
-  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
-  resetPassword: (token, password) => api.post(`/auth/reset-password/${token}`, { password }),
-  verifyEmail: (token) => api.get(`/auth/verify-email/${token}`),
-  resendVerification: () => api.post('/auth/resend-verification')
 };
 
 // ==================== USER API ====================
