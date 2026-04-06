@@ -22,6 +22,9 @@ const server = http.createServer(app);
 // Initialize Socket.io
 initSocket(server);
 
+// Initialize Cron Jobs
+require('./jobs/autoCompleteSessions')();
+
 // Middleware
 app.use(cors({ 
   origin: process.env.CLIENT_URL || 'http://localhost:3000', 
@@ -80,4 +83,15 @@ server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📁 Uploads directory: ${path.join(__dirname, 'uploads')}`);
+});
+
+// Graceful shutdown to help Nodemon release the port on Windows
+process.on('SIGUSR2', () => {
+  server.close(() => process.exit(0));
+});
+process.on('SIGINT', () => {
+  server.close(() => process.exit(0));
+});
+process.on('SIGTERM', () => {
+  server.close(() => process.exit(0));
 });

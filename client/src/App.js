@@ -23,6 +23,8 @@ import LandingPage from './pages/LandingPage';
 // Components
 import PrivateRoute from './components/PrivateRoute';
 
+import FeedbackPage from './pages/FeedbackPage';
+
 function App() {
   return (
     <AuthProvider>
@@ -30,6 +32,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/feedback/:token" element={<FeedbackPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/role-select" element={<RoleSelectPage />} />
           <Route path="/register/user" element={<RegisterPage />} />

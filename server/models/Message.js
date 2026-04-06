@@ -1,10 +1,17 @@
 const mongoose = require('mongoose');
 
-const fileSchema = new mongoose.Schema({
+const attachmentSchema = new mongoose.Schema({
   name: { type: String, required: true },
   url: { type: String, required: true },
   type: { type: String, required: true },
-  size: { type: Number, required: true }
+  size: { type: Number },
+  isVoiceNote: { type: Boolean, default: false },
+  voiceNoteDuration: { type: Number } // in seconds
+}, { _id: true });
+
+const reactionSchema = new mongoose.Schema({
+  emoji: { type: String, required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { _id: false });
 
 const messageSchema = new mongoose.Schema({
@@ -27,11 +34,21 @@ const messageSchema = new mongoose.Schema({
     type: String, 
     trim: true 
   },
-  file: fileSchema,
-  read: { 
-    type: Boolean, 
-    default: false 
-  },
+  
+  // Backwards compatibility legacy field
+  file: attachmentSchema,
+  
+  // WhatsApp-like rich payload fields
+  attachments: [attachmentSchema],
+  reactions: [reactionSchema],
+  replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' },
+  isForwarded: { type: Boolean, default: false },
+  isDeleted: { type: Boolean, default: false }, // Soft-delete ("This message was deleted")
+
+  // Delivery status tracking
+  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
+  read: { type: Boolean, default: false }, // Kept for frontend backwards compatibility
+  
 }, { 
   timestamps: true 
 });

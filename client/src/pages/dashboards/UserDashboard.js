@@ -8,6 +8,8 @@ import { theme } from '../../styles/theme';
 import { sessionAPI, userAPI, messageAPI } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { USER_TYPES, TOPICS_BY_USER_TYPE, FILE_UPLOAD } from '../../utils/constants';
+import { BarChart, Bar, AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
 const NAV = [
   { path: '/dashboard', icon: 'dashboard', label: 'Dashboard', end: true },
   { path: '/dashboard/find', icon: 'find', label: 'Find Support' },
@@ -26,43 +28,480 @@ function getSessionStatus(s) {
     if (now >= dt && now <= end) return 'live';
     if (now > end) return 'awaiting';
   }
+  if (s.status === 'live') return 'live';
+  if (s.status === 'ended') return 'ended';
   return s.status;
 }
 
-// ==================== STATUS BADGE ====================
-function StatusBadgeSmall({ status }) {
-  const styles = {
-    pending: { bg: '#fef3c7', color: '#92400e', label: 'Pending', icon: 'pending' },
-    upcoming: { bg: '#dbeafe', color: '#1e40af', label: 'Scheduled', icon: 'upcoming' },
-    live: { bg: '#fee2e2', color: '#991b1b', label: 'Live Now', icon: 'live' },
-    awaiting: { bg: '#ede9fe', color: '#5b21b6', label: 'Awaiting', icon: 'clock' },
-    completed: { bg: '#dcfce7', color: '#166534', label: 'Completed', icon: 'completed' },
-    rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected', icon: 'cross' },
-    cancelled: { bg: '#f3f4f6', color: '#4b5563', label: 'Cancelled', icon: 'cross' }
+// ==================== SESSION EXTENSION MODAL (UPDATED) ====================
+function SessionExtensionModal({ session, onClose, onExtend, onEnd }) {
+  const [selectedDuration, setSelectedDuration] = useState(15);
+  const [loading, setLoading] = useState(false);
+  const [remainingTime, setRemainingTime] = useState(null);
+
+  useEffect(() => {
+    const fetchRemainingTime = async () => {
+      try {
+        const response = await sessionAPI.getLiveSessionStatus(session._id);
+        setRemainingTime(response.data.remainingMinutes);
+      } catch (error) {
+        console.error('Failed to fetch remaining time:', error);
+      }
+    };
+    fetchRemainingTime();
+    const interval = setInterval(fetchRemainingTime, 10000);
+    return () => clearInterval(interval);
+  }, [session._id]);
+
+  const extensionOptions = [
+    { minutes: 15, price: 'Free' },
+    { minutes: 30, price: 'Free' },
+    { minutes: 45, price: 'Free' }
+  ];
+
+  const handleExtend = async () => {
+    setLoading(true);
+    try {
+      await onExtend(selectedDuration);
+      toast.success(`Extension request sent for ${selectedDuration} minutes! Waiting for supporter approval.`);
+      onClose();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to request extension');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const style = styles[status] || styles.pending;
+  const handleEnd = async () => {
+    setLoading(true);
+    try {
+      await onEnd();
+      toast.success('Session ended. Supporter will mark it as complete.');
+      onClose();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to end session');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <span style={{
-      display: 'inline-flex',
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
       alignItems: 'center',
-      gap: '4px',
-      padding: '4px 10px',
-      borderRadius: theme.borderRadius.full,
-      fontSize: '11px',
-      fontWeight: 600,
-      background: style.bg,
-      color: style.color,
-      whiteSpace: 'nowrap'
-    }}>
-      <PencilIcon name={style.icon} size={10} color={style.color} />
-      {style.label}
-    </span>
+      justifyContent: 'center',
+      zIndex: 1000,
+      animation: 'fadeIn 0.2s'
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: theme.colors.white,
+        borderRadius: theme.borderRadius.xl,
+        padding: '32px',
+        maxWidth: '400px',
+        width: '90%',
+        animation: 'slideUp 0.3s'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            margin: '0 auto 16px',
+            background: `${theme.colors.warning}15`,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <PencilIcon name="clock" size={32} color={theme.colors.warning} />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.primary, margin: '0 0 8px' }}>
+            Session Time is Almost Over!
+          </h2>
+          <p style={{ fontSize: '14px', color: theme.colors.gray600 }}>
+            Your session has <strong>{remainingTime || session.remainingMinutes || 5}</strong> minutes remaining.
+            Would you like to extend or end the session?
+          </p>
+        </div>
+
+        <div style={{ marginBottom: '24px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: 500,
+            color: theme.colors.gray700,
+            marginBottom: '12px'
+          }}>
+            Extend by:
+          </label>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {extensionOptions.map(opt => (
+              <button
+                key={opt.minutes}
+                onClick={() => setSelectedDuration(opt.minutes)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: theme.borderRadius.md,
+                  border: `2px solid ${selectedDuration === opt.minutes ? theme.colors.primary : theme.colors.gray300}`,
+                  background: selectedDuration === opt.minutes ? `${theme.colors.primary}10` : theme.colors.white,
+                  color: selectedDuration === opt.minutes ? theme.colors.primary : theme.colors.gray700,
+                  fontWeight: selectedDuration === opt.minutes ? 600 : 400,
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                +{opt.minutes} min
+                <div style={{ fontSize: '11px', color: theme.colors.success }}>{opt.price}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={handleEnd}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '14px',
+              background: theme.colors.gray100,
+              color: theme.colors.gray700,
+              border: 'none',
+              borderRadius: theme.borderRadius.md,
+              fontSize: '15px',
+              fontWeight: 500,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Processing...' : 'End Session'}
+          </button>
+          <button
+            onClick={handleExtend}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '14px',
+              background: loading ? theme.colors.gray300 : theme.colors.primary,
+              color: theme.colors.white,
+              border: 'none',
+              borderRadius: theme.borderRadius.md,
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+          >
+            {loading ? 'Requesting...' : (
+              <>
+                <PencilIcon name="clock" size={16} color={theme.colors.white} />
+                Request Extension
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ==================== FEEDBACK MODAL ====================
+// ==================== QR CODE FEEDBACK MODAL (UPDATED) ====================
+function QRFeedbackModal({ session, onClose, onFeedbackSubmitted }) {
+  const [qrCodeUrl, setQrCodeUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [showQR, setShowQR] = useState(true);
+
+  useEffect(() => {
+    const fetchQRCode = async () => {
+      try {
+        const response = await sessionAPI.getFeedbackQRCode(session._id);
+        setQrCodeUrl(response.data.qrCodeUrl || response.data.qrCode);
+      } catch (error) {
+        console.error('Failed to fetch QR code:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQRCode();
+  }, [session._id]);
+
+  const submitFeedback = async () => {
+    if (!score) {
+      toast.error('Please select a rating');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await sessionAPI.rateSession(session._id, { score, comment });
+      setFeedbackSubmitted(true);
+      setShowQR(false);
+      onFeedbackSubmitted();
+      toast.success('Thank you for your feedback!');
+      setTimeout(() => onClose(), 2000);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to submit feedback');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const labels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent!'];
+
+  if (loading) return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{ background: theme.colors.white, borderRadius: theme.borderRadius.xl, padding: '32px' }}>
+        <Spinner />
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      animation: 'fadeIn 0.2s'
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: theme.colors.white,
+        borderRadius: theme.borderRadius.xl,
+        padding: '32px',
+        maxWidth: '480px',
+        width: '90%',
+        maxHeight: '90vh',
+        overflow: 'auto',
+        animation: 'slideUp 0.3s'
+      }}>
+        {feedbackSubmitted ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              margin: '0 auto 16px',
+              background: `${theme.colors.success}15`,
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <PencilIcon name="check" size={32} color={theme.colors.success} />
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.primary, marginBottom: '8px' }}>
+              Thank You!
+            </h2>
+            <p style={{ fontSize: '14px', color: theme.colors.gray600 }}>
+              Your feedback helps us improve and helps other users find the right supporters.
+            </p>
+          </div>
+        ) : showQR ? (
+          <>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                margin: '0 auto 16px',
+                background: `${theme.colors.primary}10`,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <PencilIcon name="qr" size={32} color={theme.colors.primary} />
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.primary, margin: '0 0 8px' }}>
+                Scan to Give Feedback
+              </h2>
+              <p style={{ fontSize: '14px', color: theme.colors.gray600, marginBottom: '20px' }}>
+                Scan the QR code below to rate your session with {session.supporter?.name}
+              </p>
+              
+              {qrCodeUrl && (
+                <div style={{
+                  background: theme.colors.white,
+                  padding: '20px',
+                  borderRadius: theme.borderRadius.lg,
+                  display: 'inline-block',
+                  border: `1px solid ${theme.colors.gray200}`,
+                  marginBottom: '20px'
+                }}>
+                  <a href={session.feedbackLink} target="_blank" rel="noreferrer" style={{ cursor: 'pointer' }}>
+                    <img 
+                      src={qrCodeUrl} 
+                      alt="Feedback QR Code" 
+                      style={{ width: '200px', height: '200px', cursor: 'pointer' }}
+                    />
+                  </a>
+                </div>
+              )}
+              
+              <p style={{ fontSize: '12px', color: theme.colors.gray500 }}>
+                Or click below to rate directly
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setShowQR(false)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: theme.colors.primary,
+                color: theme.colors.white,
+                border: 'none',
+                borderRadius: theme.borderRadius.md,
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Rate Now
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                margin: '0 auto 16px',
+                background: `${theme.colors.primary}10`,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <PencilIcon name="star" size={32} color={theme.colors.primary} />
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.primary, margin: '0 0 8px' }}>
+                Rate Your Session
+              </h2>
+              <p style={{ fontSize: '14px', color: theme.colors.gray600 }}>
+                How was your session with {session.supporter?.name}?
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <button
+                  key={i}
+                  onClick={() => setScore(i)}
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover(0)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '36px',
+                    lineHeight: 1,
+                    transition: 'transform 0.1s',
+                    transform: (hover || score) >= i ? 'scale(1.2)' : 'scale(1)',
+                    color: (hover || score) >= i ? '#fbbf24' : theme.colors.gray300
+                  }}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <div style={{
+              textAlign: 'center',
+              fontSize: '14px',
+              fontWeight: 600,
+              color: theme.colors.primary,
+              marginBottom: '20px',
+              height: '20px'
+            }}>
+              {labels[hover || score] || ''}
+            </div>
+
+            <textarea
+              rows={3}
+              placeholder="Share your experience (optional)"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: `1px solid ${theme.colors.gray300}`,
+                borderRadius: theme.borderRadius.md,
+                fontSize: '14px',
+                resize: 'vertical'
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button
+                onClick={onClose}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: theme.colors.gray100,
+                  color: theme.colors.gray700,
+                  border: 'none',
+                  borderRadius: theme.borderRadius.md,
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                Later
+              </button>
+              <button
+                onClick={submitFeedback}
+                disabled={submitting || !score}
+                style={{
+                  flex: 2,
+                  padding: '12px',
+                  background: submitting || !score ? theme.colors.gray300 : theme.colors.primary,
+                  color: theme.colors.white,
+                  border: 'none',
+                  borderRadius: theme.borderRadius.md,
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: submitting || !score ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {submitting ? 'Submitting...' : 'Submit Rating'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== FEEDBACK MODAL (Original) ====================
 function FeedbackModal({ session, onClose, onDone }) {
   const [score, setScore] = useState(0);
   const [hover, setHover] = useState(0);
@@ -235,6 +674,7 @@ function FeedbackModal({ session, onClose, onDone }) {
 
 // ==================== BOOK MODAL ====================
 function BookModal({ supporter, onClose, onBooked }) {
+  const { user } = useAuth();
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
     topic: '',
@@ -245,10 +685,8 @@ function BookModal({ supporter, onClose, onBooked }) {
   });
   const [loading, setLoading] = useState(false);
 
-  const topics = supporter.topics || [
-    'Anxiety', 'Depression', 'Stress', 'Relationships', 'Academic', 
-    'Career', 'Loneliness', 'Grief', 'Self-esteem', 'Mindfulness'
-  ];
+  const fallbackTopics = TOPICS_BY_USER_TYPE[user?.userType || 'Other'] || TOPICS_BY_USER_TYPE['Other'];
+  const topics = supporter.topics && supporter.topics.length > 0 ? supporter.topics : fallbackTopics;
 
   async function submit() {
     if (!form.topic) {
@@ -300,7 +738,6 @@ function BookModal({ supporter, onClose, onBooked }) {
         overflow: 'auto',
         animation: 'slideUp 0.3s'
       }}>
-        {/* Header */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -332,7 +769,6 @@ function BookModal({ supporter, onClose, onBooked }) {
           </button>
         </div>
 
-        {/* Topic Selection */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{
             display: 'block',
@@ -362,7 +798,6 @@ function BookModal({ supporter, onClose, onBooked }) {
           </select>
         </div>
 
-        {/* Date and Time */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -418,7 +853,6 @@ function BookModal({ supporter, onClose, onBooked }) {
           </div>
         </div>
 
-        {/* Duration */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{
             display: 'block',
@@ -452,7 +886,6 @@ function BookModal({ supporter, onClose, onBooked }) {
           </div>
         </div>
 
-        {/* Notes */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{
             display: 'block',
@@ -479,12 +912,11 @@ function BookModal({ supporter, onClose, onBooked }) {
           />
         </div>
 
-        {/* Summary */}
         {form.topic && form.time && (
           <div style={{
             marginBottom: '24px',
             padding: '16px',
-           background: `${theme.colors.primary}10`,
+            background: `${theme.colors.primary}10`,
             borderRadius: theme.borderRadius.md,
             fontSize: '14px',
             color: theme.colors.primary,
@@ -504,7 +936,6 @@ function BookModal({ supporter, onClose, onBooked }) {
           </div>
         )}
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
             onClick={onClose}
@@ -556,11 +987,14 @@ function BookModal({ supporter, onClose, onBooked }) {
 
 // ==================== FIND SUPPORT SECTION ====================
 function FindSupport({ onBook }) {
+  const { user } = useAuth();
   const [supporters, setSupporters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const navigate = useNavigate();
+
+  const userTopics = TOPICS_BY_USER_TYPE[user?.userType || 'Other'] || TOPICS_BY_USER_TYPE['Other'];
 
   useEffect(() => {
     fetchSupporters();
@@ -573,29 +1007,48 @@ function FindSupport({ onBook }) {
       setSupporters(response.data.supporters || []);
     } catch (error) {
       console.error('Failed to fetch supporters:', error);
-      // Fallback data
-      setSupporters([
+      // Create predefined fallback supporters tailored to the user's specific topics
+      const predefinedSupporters = [
         {
           _id: '1',
-          name: 'Dr. Sarah Williams',
-          specialty: 'Anxiety & Depression Specialist',
-          bio: 'Licensed clinical psychologist with 8+ years of experience.',
-          topics: ['Anxiety', 'Depression', 'Stress', 'Mindfulness'],
+          name: 'Alex Johnson',
+          specialty: 'Peer Counselor & Guide',
+          bio: 'Experienced in helping peers navigate common challenges and succeed.',
+          topics: [userTopics[0], userTopics[1], userTopics[2]].filter(Boolean),
           rating: { average: 4.9, count: 124 },
-          experience: '8 years',
+          experience: '3 years',
           avatar: ''
         },
         {
           _id: '2',
-          name: 'Michael Chen',
-          specialty: 'Academic & Career Counselor',
-          bio: 'PhD in Educational Psychology. Helps with academic stress and career planning.',
-          topics: ['Academic', 'Career', 'Stress', 'Burnout'],
+          name: 'Sarah Williams',
+          specialty: 'Academic & Career Mentor',
+          bio: 'Experienced mentor focused on helping individuals balance their goals and mental health.',
+          topics: [userTopics[3], userTopics[4], userTopics[0]].filter(Boolean),
           rating: { average: 4.8, count: 98 },
-          experience: '6 years',
+          experience: '5 years',
+          avatar: ''
+        },
+        {
+          _id: '3',
+          name: 'Dr. Michael Chen',
+          specialty: 'Mental Health Specialist',
+          bio: 'Licensed professional specializing in deeper challenges and long-term wellness.',
+          topics: [userTopics[2], userTopics[5] || 'Stress', 'Relationships'],
+          rating: { average: 5.0, count: 215 },
+          experience: '8 years',
           avatar: ''
         }
-      ]);
+      ];
+
+      // If a text search or specific filter is active, filter the mock dataset
+      const filteredSupporters = predefinedSupporters.filter(s => {
+        const matchesSearch = search ? (s.name.toLowerCase().includes(search.toLowerCase()) || s.specialty.toLowerCase().includes(search.toLowerCase())) : true;
+        const matchesFilter = filter !== 'all' ? s.topics.includes(filter) : true;
+        return matchesSearch && matchesFilter;
+      });
+
+      setSupporters(filteredSupporters);
     } finally {
       setLoading(false);
     }
@@ -631,7 +1084,6 @@ function FindSupport({ onBook }) {
         </p>
       </div>
 
-      {/* Search and Filters */}
       <div style={{
         background: theme.colors.white,
         borderRadius: theme.borderRadius.lg,
@@ -680,7 +1132,7 @@ function FindSupport({ onBook }) {
           >
             All
           </button>
-          {['Anxiety', 'Depression', 'Stress', 'Academic', 'Career'].map(topic => (
+          {userTopics.slice(0, 5).map(topic => (
             <button
               key={topic}
               onClick={() => setFilter(topic)}
@@ -701,7 +1153,6 @@ function FindSupport({ onBook }) {
         </div>
       </div>
 
-      {/* Supporters Grid */}
       {supporters.length === 0 ? (
         <div style={{
           background: theme.colors.white,
@@ -745,11 +1196,7 @@ function FindSupport({ onBook }) {
               padding: '24px',
               border: `1px solid ${theme.colors.gray200}`,
               transition: 'all 0.2s',
-              cursor: 'pointer',
-              ':hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: theme.shadows.lg
-              }
+              cursor: 'pointer'
             }}
             onClick={() => onBook(s)}
             >
@@ -886,7 +1333,6 @@ function Overview({ sessions }) {
     }
   }, [sessions]);
 
-  // Check for live session
   const liveSession = sessions.find(s => {
     if (s.status === 'upcoming') {
       const dt = new Date(`${s.date.split('T')[0]}T${s.time}`);
@@ -894,10 +1340,39 @@ function Overview({ sessions }) {
       const now = new Date();
       return now >= dt && now <= end;
     }
+    if (s.status === 'live') return true;
     return false;
   });
 
-  // Stat Card Component
+  const chartData = React.useMemo(() => {
+    const data = [
+      { name: 'Week 1', solved: 0, active: 0 },
+      { name: 'Week 2', solved: 0, active: 0 },
+      { name: 'Week 3', solved: 0, active: 0 },
+      { name: 'Week 4', solved: 0, active: 0 }
+    ];
+    
+    const now = new Date();
+    
+    sessions.forEach(s => {
+      if (!s.date && !s.createdAt) return;
+      const sDate = new Date(s.date || s.createdAt);
+      // Calculate days difference
+      const diffTime = now - sDate;
+      const diffDays = diffTime >= 0 ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 0;
+      
+      let weekIndex = 3; // Latest week
+      if (diffDays > 21) weekIndex = 0;
+      else if (diffDays > 14) weekIndex = 1;
+      else if (diffDays > 7) weekIndex = 2;
+      
+      if (s.status === 'completed') data[weekIndex].solved += 1;
+      else if (['upcoming', 'pending'].includes(s.status)) data[weekIndex].active += 1;
+    });
+    
+    return data;
+  }, [sessions]);
+
   const StatCard = ({ icon, value, label, color }) => (
     <div style={{
       background: theme.colors.white,
@@ -934,7 +1409,6 @@ function Overview({ sessions }) {
       background: theme.colors.gray50,
       minHeight: '100vh'
     }}>
-      {/* Header */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -974,7 +1448,6 @@ function Overview({ sessions }) {
         </button>
       </div>
 
-      {/* Live Session Alert */}
       {liveSession && (
         <div style={{
           background: '#fee2e2',
@@ -1010,7 +1483,7 @@ function Overview({ sessions }) {
           </div>
           <button
             onClick={() => navigate('/dashboard/messages', { 
-              state: { partnerId: liveSession.supporter._id, partnerName: liveSession.supporter.name }
+              state: { partnerId: liveSession.supporter._id, partnerName: liveSession.supporter.name, sessionId: liveSession._id }
             })}
             style={{
               padding: '10px 20px',
@@ -1028,7 +1501,6 @@ function Overview({ sessions }) {
         </div>
       )}
 
-      {/* Stats Grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
@@ -1041,14 +1513,12 @@ function Overview({ sessions }) {
         <StatCard icon="pending" value={stats.pending} label="PENDING" color={theme.colors.warning} />
       </div>
 
-      {/* Two Column Layout */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1.5fr 1fr',
         gap: '20px',
         marginBottom: '20px'
       }}>
-        {/* Upcoming Sessions */}
         <div style={{
           background: theme.colors.white,
           borderRadius: theme.borderRadius.lg,
@@ -1124,7 +1594,6 @@ function Overview({ sessions }) {
           )}
         </div>
 
-        {/* Wellness Tracker */}
         <div style={{
           background: theme.colors.white,
           borderRadius: theme.borderRadius.lg,
@@ -1132,40 +1601,101 @@ function Overview({ sessions }) {
           border: `1px solid ${theme.colors.gray200}`
         }}>
           <h2 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.primary, marginBottom: '24px' }}>
-            Wellness Tracker
+            Support Journey & Issues
           </h2>
 
-          <ProgressBar label="Mood" value={70} color="auto" />
-          <ProgressBar label="Stress Level" value={45} color="auto" />
-          <ProgressBar label="Sleep Quality" value={80} color="auto" />
-          <ProgressBar label="Overall Wellness" value={72} color="auto" />
+          <div style={{ height: '240px', width: '100%', marginBottom: '20px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={chartData}
+                margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorSolved" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.6}/>
+                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.05}/>
+                  </linearGradient>
+                  <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.6}/>
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.05}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.colors.gray200} />
+                <XAxis dataKey="name" tick={{ fontSize: 13, fill: theme.colors.gray500, fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
+                <YAxis tick={{ fontSize: 13, fill: theme.colors.gray500, fontWeight: 500 }} axisLine={false} tickLine={false} allowDecimals={false} dx={-10} />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '12px', 
+                    border: '1px solid rgba(255,255,255,0.2)', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    fontWeight: 600
+                  }}
+                  itemStyle={{ fontWeight: 700 }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '13px', fontWeight: 600, paddingTop: '15px' }} />
+                <Area 
+                  type="monotone" 
+                  dataKey="active" 
+                  name="Active Issues" 
+                  stroke="#0ea5e9" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorActive)" 
+                  activeDot={{ r: 8, strokeWidth: 0, fill: '#0ea5e9' }} 
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="solved" 
+                  name="Total Solved" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorSolved)" 
+                  activeDot={{ r: 8, strokeWidth: 0, fill: '#8b5cf6' }} 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
 
-          <button
-            onClick={() => {}}
-            style={{
-              width: '100%',
-              padding: '12px',
-              marginTop: '20px',
-              background: theme.colors.gray100,
-              color: theme.colors.gray700,
-              border: `1px solid ${theme.colors.gray300}`,
-              borderRadius: theme.borderRadius.md,
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            <PencilIcon name="mood" size={16} color={theme.colors.gray600} />
-            Daily Check-in
-          </button>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div style={{
+              flex: 1,
+              padding: '16px',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.2)',
+              borderRadius: theme.borderRadius.lg,
+              textAlign: 'center',
+              boxShadow: '0 4px 6px -1px rgba(139, 92, 246, 0.05)'
+            }}>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#8b5cf6', marginBottom: '4px' }}>
+                {sessions.filter(s => s.status === 'completed').length}
+              </div>
+              <div style={{ fontSize: '13px', color: theme.colors.gray600, fontWeight: 600 }}>
+                Total Solved
+              </div>
+            </div>
+            <div style={{
+              flex: 1,
+              padding: '16px',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(14, 165, 233, 0.05) 100%)',
+              border: '1px solid rgba(14, 165, 233, 0.2)',
+              borderRadius: theme.borderRadius.lg,
+              textAlign: 'center',
+              boxShadow: '0 4px 6px -1px rgba(14, 165, 233, 0.05)'
+            }}>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: '#0ea5e9', marginBottom: '4px' }}>
+                {sessions.filter(s => ['upcoming', 'pending'].includes(s.status)).length}
+              </div>
+              <div style={{ fontSize: '13px', color: theme.colors.gray600, fontWeight: 600 }}>
+                Currently Active
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
       <div style={{
         background: theme.colors.white,
         borderRadius: theme.borderRadius.lg,
@@ -1233,11 +1763,48 @@ function Overview({ sessions }) {
   );
 }
 
-// ==================== MY SESSIONS SECTION ====================
+// ==================== STATUS BADGE SMALL ====================
+function StatusBadgeSmall({ status }) {
+  const styles = {
+    pending: { bg: '#fef3c7', color: '#92400e', label: 'Pending', icon: 'pending' },
+    upcoming: { bg: '#dbeafe', color: '#1e40af', label: 'Scheduled', icon: 'upcoming' },
+    live: { bg: '#fee2e2', color: '#991b1b', label: 'Live Now', icon: 'live' },
+    awaiting: { bg: '#ede9fe', color: '#5b21b6', label: 'Awaiting', icon: 'clock' },
+    ended: { bg: '#fef3c7', color: '#92400e', label: 'Ended', icon: 'clock' },
+    completed: { bg: '#dcfce7', color: '#166534', label: 'Completed', icon: 'completed' },
+    rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected', icon: 'cross' },
+    cancelled: { bg: '#f3f4f6', color: '#4b5563', label: 'Cancelled', icon: 'cross' }
+  };
+
+  const style = styles[status] || styles.pending;
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      padding: '4px 10px',
+      borderRadius: theme.borderRadius.full,
+      fontSize: '11px',
+      fontWeight: 600,
+      background: style.bg,
+      color: style.color,
+      whiteSpace: 'nowrap'
+    }}>
+      <PencilIcon name={style.icon} size={10} color={style.color} />
+      {style.label}
+    </span>
+  );
+}
+
+// ==================== MY SESSIONS SECTION (UPDATED) ====================
 function MySessions({ sessions, onRefresh }) {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [ratingModal, setRatingModal] = useState(null);
+  const [extensionModal, setExtensionModal] = useState(null);
+  const [qrFeedbackModal, setQrFeedbackModal] = useState(null);
+  const [liveSessionId, setLiveSessionId] = useState(null);
 
   const filteredSessions = sessions.filter(s => {
     if (filter === 'all') return true;
@@ -1250,6 +1817,7 @@ function MySessions({ sessions, onRefresh }) {
       case 'pending': return { bg: '#fef3c7', color: '#92400e' };
       case 'upcoming': return { bg: '#dbeafe', color: '#1e40af' };
       case 'live': return { bg: '#fee2e2', color: '#991b1b' };
+      case 'ended': return { bg: '#fef3c7', color: '#92400e' };
       case 'completed': return { bg: '#dcfce7', color: '#166534' };
       case 'rejected': return { bg: '#fee2e2', color: '#991b1b' };
       case 'cancelled': return { bg: '#f3f4f6', color: '#4b5563' };
@@ -1266,6 +1834,26 @@ function MySessions({ sessions, onRefresh }) {
     if (diffMinutes < 60) return `in ${diffMinutes} minutes`;
     if (diffMinutes < 1440) return `in ${Math.round(diffMinutes / 60)} hours`;
     return `in ${Math.round(diffMinutes / 1440)} days`;
+  };
+
+  const handleExtendSession = async (sessionId, additionalMinutes) => {
+    try {
+      await sessionAPI.extendSession(sessionId, { minutes: additionalMinutes });
+      toast.success(`Extension request sent for ${additionalMinutes} minutes! Waiting for supporter approval.`);
+      onRefresh();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to request extension');
+    }
+  };
+
+  const handleEndSession = async (sessionId) => {
+    try {
+      await sessionAPI.endSessionEarly(sessionId);
+      toast.success('Session ended. Supporter will mark it as complete.');
+      onRefresh();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to end session');
+    }
   };
 
   return (
@@ -1305,7 +1893,6 @@ function MySessions({ sessions, onRefresh }) {
         </button>
       </div>
 
-      {/* Filters */}
       <div style={{
         display: 'flex',
         gap: '12px',
@@ -1332,7 +1919,6 @@ function MySessions({ sessions, onRefresh }) {
         ))}
       </div>
 
-      {/* Sessions List */}
       {filteredSessions.length === 0 ? (
         <div style={{
           background: theme.colors.white,
@@ -1486,7 +2072,7 @@ function MySessions({ sessions, onRefresh }) {
                     <>
                       <button
                         onClick={() => navigate('/dashboard/messages', {
-                          state: { partnerId: s.supporter._id, partnerName: s.supporter.name }
+                          state: { partnerId: s.supporter._id, partnerName: s.supporter.name, sessionId: s._id }
                         })}
                         style={{
                           flex: 1,
@@ -1522,9 +2108,12 @@ function MySessions({ sessions, onRefresh }) {
                   )}
                   {status === 'live' && (
                     <button
-                      onClick={() => navigate('/dashboard/messages', {
-                        state: { partnerId: s.supporter._id, partnerName: s.supporter.name }
-                      })}
+                      onClick={() => {
+                        setLiveSessionId(s._id);
+                        navigate('/dashboard/messages', {
+                          state: { partnerId: s.supporter._id, partnerName: s.supporter.name, sessionId: s._id }
+                        });
+                      }}
                       style={{
                         flex: 1,
                         padding: '12px',
@@ -1539,6 +2128,19 @@ function MySessions({ sessions, onRefresh }) {
                     >
                       Join Live
                     </button>
+                  )}
+                  {status === 'ended' && (
+                    <div style={{
+                      flex: 1,
+                      padding: '12px',
+                      background: '#fef3c7',
+                      color: '#92400e',
+                      borderRadius: theme.borderRadius.md,
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}>
+                      Waiting for supporter to complete
+                    </div>
                   )}
                   {status === 'pending' && (
                     <div style={{
@@ -1555,7 +2157,7 @@ function MySessions({ sessions, onRefresh }) {
                   )}
                   {status === 'completed' && !s.rating && (
                     <button
-                      onClick={() => setRatingModal(s)}
+                      onClick={() => setQrFeedbackModal(s)}
                       style={{
                         flex: 1,
                         padding: '12px',
@@ -1565,9 +2167,14 @@ function MySessions({ sessions, onRefresh }) {
                         borderRadius: theme.borderRadius.md,
                         fontSize: '14px',
                         fontWeight: 600,
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
                       }}
                     >
+                      <PencilIcon name="star" size={16} color={theme.colors.white} />
                       Rate Session
                     </button>
                   )}
@@ -1585,10 +2192,103 @@ function MySessions({ sessions, onRefresh }) {
           onDone={onRefresh}
         />
       )}
+      {extensionModal && (
+        <SessionExtensionModal
+          session={extensionModal}
+          onClose={() => setExtensionModal(null)}
+          onExtend={(minutes) => handleExtendSession(extensionModal._id, minutes)}
+          onEnd={() => handleEndSession(extensionModal._id)}
+        />
+      )}
+      {qrFeedbackModal && (
+        <QRFeedbackModal
+          session={qrFeedbackModal}
+          onClose={() => setQrFeedbackModal(null)}
+          onFeedbackSubmitted={onRefresh}
+        />
+      )}
+      {liveSessionId && (
+        <LiveSessionTimer
+          sessionId={liveSessionId}
+          onExtensionNeeded={() => {
+            const liveSession = sessions.find(s => s._id === liveSessionId);
+            if (liveSession) setExtensionModal(liveSession);
+          }}
+          onSessionEnded={onRefresh}
+        />
+      )}
     </div>
   );
 }
-// ==================== MESSAGES SECTION WITH WORKING FILE UPLOAD ====================
+
+// ==================== LIVE SESSION TIMER ====================
+function LiveSessionTimer({ sessionId, onExtensionNeeded, onSessionEnded }) {
+  const [remainingMinutes, setRemainingMinutes] = useState(null);
+  const [showExtensionPrompt, setShowExtensionPrompt] = useState(false);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const response = await sessionAPI.getLiveSessionStatus(sessionId);
+        const data = response.data;
+        if (data.isLive) {
+          setRemainingMinutes(data.remainingMinutes);
+          if (data.needsExtensionPrompt && !showExtensionPrompt) {
+            setShowExtensionPrompt(true);
+            onExtensionNeeded && onExtensionNeeded();
+          }
+        } else {
+          onSessionEnded && onSessionEnded();
+        }
+      } catch (error) {
+        console.error('Failed to fetch live status:', error);
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
+  if (remainingMinutes === null) return null;
+
+  const formatTime = (minutes) => {
+    if (minutes <= 0) return 'Ending now';
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: '80px',
+      right: '20px',
+      background: theme.colors.white,
+      borderRadius: theme.borderRadius.lg,
+      padding: '12px 20px',
+      boxShadow: theme.shadows.lg,
+      border: `1px solid ${theme.colors.gray200}`,
+      zIndex: 100,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px'
+    }}>
+      <div style={{
+        width: '10px',
+        height: '10px',
+        borderRadius: '50%',
+        background: '#10b981',
+        animation: 'pulse 1.5s infinite'
+      }} />
+      <span style={{ fontSize: '13px', color: theme.colors.gray600 }}>Session ends:</span>
+      <span style={{ fontSize: '15px', fontWeight: 700, color: theme.colors.primary }}>{formatTime(remainingMinutes)}</span>
+    </div>
+  );
+}
+
+// ==================== MESSAGES SECTION ====================
 function Messages() {
   const { user } = useAuth();
   const location = useLocation();
@@ -1601,6 +2301,55 @@ function Messages() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [downloadedFiles, setDownloadedFiles] = useState({});
+  const [sessionId, setSessionId] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+
+  const handleContextMenu = (e, msg) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
+  };
+  
+  const closeContextMenu = () => setContextMenu(null);
+
+  const handleDeleteMessage = async (msgId) => {
+    try {
+      await messageAPI.deleteMessage(msgId);
+      setMsgs(prev => prev.map(m => m._id === msgId ? { ...m, isDeleted: true, text: '', file: null, attachments: [] } : m));
+      toast.success('Message deleted');
+    } catch (e) {
+      toast.error('Failed to delete message');
+    }
+    closeContextMenu();
+  };
+
+  const handleCopyMessage = (text) => {
+    if(text) {
+      navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
+    }
+    closeContextMenu();
+  };
+
+  useEffect(() => {
+    if (location.state?.sessionId) {
+      setSessionId(location.state.sessionId);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    const startLiveSession = async () => {
+      if (sessionId) {
+        try {
+          await sessionAPI.startLiveSession(sessionId);
+          console.log('Live session started');
+        } catch (error) {
+          console.error('Failed to start live session:', error);
+        }
+      }
+    };
+    startLiveSession();
+  }, [sessionId]);
 
   const loadConversations = async () => {
     try {
@@ -1687,18 +2436,15 @@ function Messages() {
     }
   };
 
-  // ========== FIXED FILE UPLOAD FUNCTION - PUT THIS HERE ==========
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file || !active) return;
 
-    // Check file size
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File size must be less than 10MB');
       return;
     }
 
-    // Allowed file types
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
       'application/pdf',
@@ -1714,15 +2460,12 @@ function Messages() {
 
     setUploading(true);
 
-    // Create FormData
     const formData = new FormData();
     formData.append('file', file);
     formData.append('recipientId', active.partner._id);
 
     try {
       const token = localStorage.getItem('token');
-      console.log('Uploading file to:', `${process.env.REACT_APP_API_URL}/messages/upload`);
-      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/messages/upload`, {
         method: 'POST',
         headers: {
@@ -1732,15 +2475,10 @@ function Messages() {
       });
 
       const data = await response.json();
-      console.log('Upload response:', data);
 
       if (data.success) {
-        // Add the real file message from server
         setMsgs(prev => [...prev, data.message]);
-        
-        // Refresh conversations to update last message
         loadConversations();
-        
         toast.success('File uploaded successfully');
       } else {
         toast.error(data.message || 'File upload failed');
@@ -1750,13 +2488,17 @@ function Messages() {
       toast.error('Failed to connect to server. Please try again.');
     } finally {
       setUploading(false);
-      // Clear file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
   };
-  // ========== END OF FIXED FILE UPLOAD FUNCTION ==========
+
+  const handleFileDownload = (fileId, fileUrl) => {
+    setDownloadedFiles(prev => ({ ...prev, [fileId]: true }));
+    window.open(fileUrl, '_blank');
+    toast.success('File downloaded');
+  };
 
   const getFileIcon = (fileType) => {
     if (fileType?.startsWith('image/')) return 'image';
@@ -1789,7 +2531,6 @@ function Messages() {
         overflow: 'hidden',
         boxShadow: theme.shadows.md
       }}>
-        {/* Left Sidebar - Conversations List */}
         <div style={{
           width: '320px',
           borderRight: `1px solid ${theme.colors.gray200}`,
@@ -1914,7 +2655,6 @@ function Messages() {
           </div>
         </div>
 
-        {/* Right Side - Chat Area */}
         <div style={{ 
           flex: 1, 
           display: 'flex', 
@@ -1952,7 +2692,6 @@ function Messages() {
             </div>
           ) : (
             <>
-              {/* Chat Header */}
               <div style={{
                 padding: '16px 24px',
                 borderBottom: `1px solid ${theme.colors.gray200}`,
@@ -1991,7 +2730,6 @@ function Messages() {
                 </div>
               </div>
 
-              {/* Messages Container */}
               <div style={{
                 flex: 1,
                 padding: '24px',
@@ -2027,6 +2765,7 @@ function Messages() {
                     const isMe = m.sender?._id === user._id;
                     const showDate = index === 0 || 
                       new Date(m.createdAt).toDateString() !== new Date(msgs[index - 1].createdAt).toDateString();
+                    const fileData = m.file || (m.attachments && m.attachments[0]);
                     
                     return (
                       <React.Fragment key={m._id}>
@@ -2051,94 +2790,174 @@ function Messages() {
                             </span>
                           </div>
                         )}
-                        {/* File Message */}
-{m.file ? (
-  <div style={{
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: isMe ? 'flex-end' : 'flex-start'
-  }}>
-    <div style={{
-      maxWidth: '70%',
-      padding: '16px',
-      borderRadius: isMe 
-        ? '16px 16px 4px 16px' 
-        : '16px 16px 16px 4px',
-      background: isMe ? theme.colors.primary : theme.colors.white,
-      color: isMe ? theme.colors.white : theme.colors.gray800,
-      boxShadow: theme.shadows.sm,
-      border: isMe ? 'none' : `1px solid ${theme.colors.gray200}`
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '8px',
-          background: isMe ? 'rgba(255,255,255,0.2)' : theme.colors.gray100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <PencilIcon 
-            name={getFileIcon(m.file.type)} 
-            size={20} 
-            color={isMe ? theme.colors.white : theme.colors.primary} 
-          />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ 
-            fontSize: '13px', 
-            fontWeight: 600,
-            color: isMe ? theme.colors.white : theme.colors.gray800,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            {m.file.name}
-          </div>
-          <div style={{ 
-            fontSize: '10px',
-            color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.gray500,
-            marginTop: '2px'
-          }}>
-            {formatFileSize(m.file.size)}
-          </div>
-        </div>
-        
-        {/* ===== REPLACE THIS ENTIRE <a> TAG ===== */}
-        <a
-          href={m.file.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: isMe ? theme.colors.white : theme.colors.primary,
-            textDecoration: 'none'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <PencilIcon name="download" size={18} color={isMe ? theme.colors.white : theme.colors.primary} />
-        </a>
-        {/* ===== END OF REPLACEMENT SECTION ===== */}
-        
-      </div>
-    </div>
-    <span style={{
-      fontSize: '10px',
-      color: theme.colors.gray500,
-      marginTop: '4px',
-      marginLeft: isMe ? 0 : '8px',
-      marginRight: isMe ? '8px' : 0
-    }}>
-      {new Date(m.createdAt).toLocaleTimeString([], { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })}
-    </span>
-  </div>
-                      
+                        
+                        {m.isDeleted ? (
+                          <div
+                            onContextMenu={(e) => handleContextMenu(e, m)}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: isMe ? 'flex-end' : 'flex-start'
+                            }}
+                          >
+                            <div style={{
+                              maxWidth: '70%',
+                              padding: '12px 16px',
+                              borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                              background: isMe ? `${theme.colors.primary}10` : `${theme.colors.gray100}`,
+                              color: theme.colors.gray500,
+                              fontStyle: 'italic',
+                              fontSize: '14px',
+                              border: `1px solid ${theme.colors.gray200}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span style={{ fontSize: '14px' }}>🚫</span>
+                              {isMe ? 'You deleted this message' : 'This message was deleted'}
+                            </div>
+                            <span style={{
+                              fontSize: '10px',
+                              color: theme.colors.gray500,
+                              marginTop: '4px',
+                              marginLeft: isMe ? 0 : '8px',
+                              marginRight: isMe ? '8px' : 0
+                            }}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </div>
+                        ) : fileData ? (
+                          <div 
+                            onContextMenu={(e) => handleContextMenu(e, m)}
+                            style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: isMe ? 'flex-end' : 'flex-start'
+                          }}>
+                            <div style={{
+                              maxWidth: '70%',
+                              padding: '16px',
+                              borderRadius: isMe 
+                                ? '16px 16px 4px 16px' 
+                                : '16px 16px 16px 4px',
+                              background: isMe ? theme.colors.primary : theme.colors.white,
+                              color: isMe ? theme.colors.white : theme.colors.gray800,
+                              boxShadow: theme.shadows.sm,
+                              border: isMe ? 'none' : `1px solid ${theme.colors.gray200}`
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  borderRadius: '8px',
+                                  background: isMe ? 'rgba(255,255,255,0.2)' : theme.colors.gray100,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}>
+                                  <PencilIcon 
+                                    name={getFileIcon(fileData.type)} 
+                                    size={20} 
+                                    color={isMe ? theme.colors.white : theme.colors.primary} 
+                                  />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ 
+                                    fontSize: '13px', 
+                                    fontWeight: 600,
+                                    color: isMe ? theme.colors.white : theme.colors.gray800,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {fileData.name}
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: '10px',
+                                    color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.gray500,
+                                    marginTop: '2px'
+                                  }}>
+                                    {formatFileSize(fileData.size)}
+                                  </div>
+                                </div>
+                                <a
+                                  href={fileData.url.startsWith('http') 
+                                    ? fileData.url 
+                                    : `${process.env.REACT_APP_API_URL.replace('/api', '')}${fileData.url}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    color: isMe ? theme.colors.white : theme.colors.primary,
+                                    textDecoration: 'none',
+                                    position: 'relative'
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleFileDownload(m._id, fileData.url.startsWith('http') 
+                                      ? fileData.url 
+                                      : `${process.env.REACT_APP_API_URL.replace('/api', '')}${fileData.url}`);
+                                  }}
+                                >
+                                  <PencilIcon 
+                                    name={downloadedFiles[m._id] ? 'check' : 'download'} 
+                                    size={18} 
+                                    color={isMe ? theme.colors.white : theme.colors.primary} 
+                                  />
+                                  {downloadedFiles[m._id] && (
+                                    <span style={{
+                                      position: 'absolute',
+                                      top: -8,
+                                      right: -8,
+                                      fontSize: '10px',
+                                      color: '#10b981',
+                                      background: 'white',
+                                      borderRadius: '50%',
+                                      width: '14px',
+                                      height: '14px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid #10b981'
+                                    }}>
+                                      ✓
+                                    </span>
+                                  )}
+                                </a>
+                              </div>
+                            </div>
+                            <span style={{
+                              fontSize: '10px',
+                              color: theme.colors.gray500,
+                              marginTop: '4px',
+                              marginLeft: isMe ? 0 : '8px',
+                              marginRight: isMe ? '8px' : 0,
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                              {isMe && (
+                                <span style={{ 
+                                  marginLeft: '4px',
+                                  fontSize: '12px',
+                                  color: (m.status === 'read' || m.read) ? '#3b82f6' : '#9ca3af',
+                                  letterSpacing: '-3px',
+                                  display: 'inline-block'
+                                }}>
+                                  {(m.status === 'read' || m.read || m.status === 'delivered') ? '✓✓' : '✓'}
+                                </span>
+                              )}
+                            </span>
+                          </div>
                         ) : (
-                          /* Text Message */
-                          <div style={{
+                          <div 
+                            onContextMenu={(e) => handleContextMenu(e, m)}
+                            style={{
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: isMe ? 'flex-end' : 'flex-start'
@@ -2163,12 +2982,25 @@ function Messages() {
                               color: theme.colors.gray500,
                               marginTop: '4px',
                               marginLeft: isMe ? 0 : '8px',
-                              marginRight: isMe ? '8px' : 0
+                              marginRight: isMe ? '8px' : 0,
+                              display: 'flex',
+                              alignItems: 'center'
                             }}>
                               {new Date(m.createdAt).toLocaleTimeString([], { 
                                 hour: '2-digit', 
                                 minute: '2-digit' 
                               })}
+                              {isMe && (
+                                <span style={{ 
+                                  marginLeft: '4px',
+                                  fontSize: '12px',
+                                  color: (m.status === 'read' || m.read) ? '#3b82f6' : '#9ca3af',
+                                  letterSpacing: '-3px',
+                                  display: 'inline-block'
+                                }}>
+                                  {(m.status === 'read' || m.read || m.status === 'delivered') ? '✓✓' : '✓'}
+                                </span>
+                              )}
                             </span>
                           </div>
                         )}
@@ -2179,7 +3011,6 @@ function Messages() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* Message Input */}
               <div style={{
                 padding: '20px 24px',
                 borderTop: `1px solid ${theme.colors.gray200}`,
@@ -2262,9 +3093,71 @@ function Messages() {
           )}
         </div>
       </div>
+      {contextMenu && (
+        <>
+          <div 
+            onClick={closeContextMenu}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998 }}
+          />
+          <div style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            background: theme.colors.white,
+            boxShadow: theme.shadows.lg,
+            borderRadius: theme.borderRadius.md,
+            padding: '8px 0',
+            zIndex: 9999,
+            border: `1px solid ${theme.colors.gray200}`,
+            minWidth: '150px'
+          }}>
+            {contextMenu.message.text && (
+              <button
+                onClick={() => handleCopyMessage(contextMenu.message.text)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 16px',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: theme.colors.gray700
+                }}
+                onMouseOver={(e) => e.target.style.background = theme.colors.gray50}
+                onMouseOut={(e) => e.target.style.background = 'transparent'}
+              >
+                Copy Message
+              </button>
+            )}
+            {contextMenu.message.sender?._id === user._id && !contextMenu.message.isDeleted && (
+              <button
+                onClick={() => handleDeleteMessage(contextMenu.message._id)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 16px',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: theme.colors.danger
+                }}
+                onMouseOver={(e) => e.target.style.background = theme.colors.gray50}
+                onMouseOut={(e) => e.target.style.background = 'transparent'}
+              >
+                Delete Message
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
 // ==================== NOTIFICATIONS SECTION ====================
 function Notifications() {
   const [notifications, setNotifications] = useState([]);

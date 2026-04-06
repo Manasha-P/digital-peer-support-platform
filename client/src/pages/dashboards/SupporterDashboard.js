@@ -8,6 +8,7 @@ import { theme } from '../../styles/theme';
 import { sessionAPI, messageAPI, authAPI } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { USER_TYPES, TOPICS_BY_USER_TYPE } from '../../utils/constants';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const NAV = [
   { path: '/supporter', icon: 'dashboard', label: 'Dashboard', end: true },
@@ -17,6 +18,152 @@ const NAV = [
   { path: '/supporter/notifications', icon: 'notifications', label: 'Session Requests' },
   { path: '/supporter/settings', icon: 'settings', label: 'Settings' },
 ];
+
+// ==================== SESSION EXTENSION NOTIFICATION MODAL ====================
+function ExtensionRequestModal({ session, onClose, onApprove, onReject }) {
+  const [loading, setLoading] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState(session.extensions?.[session.extensions.length - 1]?.duration || 15);
+
+  const handleApprove = async () => {
+    setLoading(true);
+    try {
+      await onApprove(session._id, selectedDuration);
+      onClose();
+    } catch (error) {
+      console.error('Failed to approve extension:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    setLoading(true);
+    try {
+      await onReject(session._id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to reject extension:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+      animation: 'fadeIn 0.2s'
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background: theme.colors.white,
+        borderRadius: theme.borderRadius.xl,
+        padding: '32px',
+        maxWidth: '400px',
+        width: '90%',
+        animation: 'slideUp 0.3s'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            margin: '0 auto 16px',
+            background: `${theme.colors.info}15`,
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <PencilIcon name="clock" size={32} color={theme.colors.info} />
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: 700, color: theme.colors.primary, margin: '0 0 8px' }}>
+            Session Extension Request
+          </h2>
+          <p style={{ fontSize: '14px', color: theme.colors.gray600 }}>
+            <strong>{session.user?.name}</strong> has requested to extend the session by <strong>{selectedDuration}</strong> minutes.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: '24px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: 500,
+            color: theme.colors.gray700,
+            marginBottom: '12px'
+          }}>
+            Extension Duration:
+          </label>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            {[15, 30, 45].map(min => (
+              <button
+                key={min}
+                onClick={() => setSelectedDuration(min)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: theme.borderRadius.md,
+                  border: `2px solid ${selectedDuration === min ? theme.colors.primary : theme.colors.gray300}`,
+                  background: selectedDuration === min ? `${theme.colors.primary}10` : theme.colors.white,
+                  color: selectedDuration === min ? theme.colors.primary : theme.colors.gray700,
+                  fontWeight: selectedDuration === min ? 600 : 400,
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                +{min} min
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={handleReject}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '14px',
+              background: theme.colors.white,
+              color: theme.colors.danger,
+              border: `1px solid ${theme.colors.danger}`,
+              borderRadius: theme.borderRadius.md,
+              fontSize: '15px',
+              fontWeight: 500,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Processing...' : 'Decline'}
+          </button>
+          <button
+            onClick={handleApprove}
+            disabled={loading}
+            style={{
+              flex: 1,
+              padding: '14px',
+              background: loading ? theme.colors.gray300 : theme.colors.success,
+              color: theme.colors.white,
+              border: 'none',
+              borderRadius: theme.borderRadius.md,
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Approving...' : 'Approve Extension'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ==================== ACCEPT/REJECT BUTTONS ====================
 function AcceptReject({ session, onRefresh }) {
@@ -91,20 +238,22 @@ function AcceptReject({ session, onRefresh }) {
   );
 }
 
-// ==================== MARK COMPLETE BUTTON ====================
+// ==================== MARK COMPLETE BUTTON (UPDATED WITH QR NOTIFICATION) ====================
 function MarkCompleteBtn({ session, onRefresh }) {
   const [loading, setLoading] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const dt = new Date(`${session.date.split('T')[0]}T${session.time}`);
   const ended = new Date() > new Date(dt.getTime() + session.duration * 60000);
 
-  if (session.status !== 'upcoming') return null;
+  if (session.status !== 'upcoming' && session.status !== 'ended') return null;
 
   async function mark() {
     setLoading(true);
     try {
-      await sessionAPI.completeSession(session._id);
-      toast.success('Session marked as complete');
+      const response = await sessionAPI.completeSession(session._id);
+      toast.success('Session marked as complete! QR code sent to user for feedback.');
       onRefresh();
+      setShowConfirm(false);
     } catch (error) {
       console.error('Failed to mark complete:', error);
       toast.error(error.response?.data?.message || 'Failed to mark complete');
@@ -113,7 +262,7 @@ function MarkCompleteBtn({ session, onRefresh }) {
     }
   }
 
-  const buttonStyle = ended ? {
+  const buttonStyle = (ended || session.status === 'ended') ? {
     background: theme.colors.success,
     color: theme.colors.white,
     border: 'none',
@@ -125,10 +274,47 @@ function MarkCompleteBtn({ session, onRefresh }) {
     cursor: 'not-allowed'
   };
 
+  if (showConfirm) {
+    return (
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <span style={{ fontSize: '12px', color: theme.colors.gray600 }}>Complete this session?</span>
+        <button
+          onClick={mark}
+          disabled={loading}
+          style={{
+            padding: '6px 12px',
+            background: theme.colors.success,
+            color: theme.colors.white,
+            border: 'none',
+            borderRadius: theme.borderRadius.md,
+            fontSize: '12px',
+            cursor: 'pointer'
+          }}
+        >
+          Yes
+        </button>
+        <button
+          onClick={() => setShowConfirm(false)}
+          style={{
+            padding: '6px 12px',
+            background: theme.colors.gray200,
+            color: theme.colors.gray700,
+            border: 'none',
+            borderRadius: theme.borderRadius.md,
+            fontSize: '12px',
+            cursor: 'pointer'
+          }}
+        >
+          No
+        </button>
+      </div>
+    );
+  }
+
   return (
     <button
-      onClick={mark}
-      disabled={loading || !ended}
+      onClick={() => setShowConfirm(true)}
+      disabled={loading || !(ended || session.status === 'ended')}
       style={{
         padding: '8px 16px',
         borderRadius: theme.borderRadius.md,
@@ -142,15 +328,15 @@ function MarkCompleteBtn({ session, onRefresh }) {
         ...buttonStyle
       }}
     >
-      {loading ? 'Saving...' : ended ? (
+      {loading ? 'Processing...' : (ended || session.status === 'ended') ? (
         <>
           <PencilIcon name="check" size={16} color={theme.colors.white} />
-          Mark Complete
+          Complete & Send QR
         </>
       ) : (
         <>
           <PencilIcon name="clock" size={16} color={theme.colors.gray500} />
-          Not ended yet
+          Awaiting session end
         </>
       )}
     </button>
@@ -179,10 +365,34 @@ function Overview({ sessions, onRefresh }) {
 
   const pending = sessions.filter(s => s.status === 'pending');
   const needClose = sessions.filter(s => {
-    if (s.status !== 'upcoming') return false;
+    if (s.status !== 'upcoming' && s.status !== 'ended') return false;
     const dt = new Date(`${s.date.split('T')[0]}T${s.time}`);
-    return new Date() > new Date(dt.getTime() + s.duration * 60000);
+    const endTime = s.currentEndTime ? new Date(s.currentEndTime) : new Date(dt.getTime() + s.duration * 60000);
+    return new Date() > endTime;
   });
+
+  const chartData = React.useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dataMap = { 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0, 'Sun': 0 };
+    
+    sessions.forEach(s => {
+      if (s.date && s.status !== 'cancelled' && s.status !== 'rejected' && s.status !== 'pending') {
+        const dateObj = new Date(s.date);
+        const dayName = days[dateObj.getDay()];
+        dataMap[dayName] += 1;
+      }
+    });
+
+    return [
+      { name: 'Mon', sessions: dataMap['Mon'] },
+      { name: 'Tue', sessions: dataMap['Tue'] },
+      { name: 'Wed', sessions: dataMap['Wed'] },
+      { name: 'Thu', sessions: dataMap['Thu'] },
+      { name: 'Fri', sessions: dataMap['Fri'] },
+      { name: 'Sat', sessions: dataMap['Sat'] },
+      { name: 'Sun', sessions: dataMap['Sun'] }
+    ];
+  }, [sessions]);
 
   // Stat Card Component
   const StatCard = ({ icon, value, label, color }) => (
@@ -365,6 +575,7 @@ function Overview({ sessions, onRefresh }) {
                         </div>
                         <div style={{ fontSize: '13px', color: theme.colors.gray600 }}>
                           {s.topic} • {new Date(s.date).toLocaleDateString()} at {s.time}
+                          {s.totalExtendedMinutes > 0 && <span> (Extended by {s.totalExtendedMinutes} min)</span>}
                         </div>
                       </div>
                     </div>
@@ -375,7 +586,6 @@ function Overview({ sessions, onRefresh }) {
             </div>
           )}
 
-          {/* Performance Card */}
           <div style={{
             background: theme.colors.white,
             borderRadius: theme.borderRadius.lg,
@@ -383,11 +593,24 @@ function Overview({ sessions, onRefresh }) {
             border: `1px solid ${theme.colors.gray200}`
           }}>
             <h3 style={{ fontSize: '18px', fontWeight: 600, color: theme.colors.primary, marginBottom: '20px' }}>
-              Your Performance
+              Your Session Volume
             </h3>
-            <ProgressBar label="Response Rate" value={94} color="auto" />
-            <ProgressBar label="Satisfaction Score" value={96} color="auto" />
-            <ProgressBar label="Session Completion" value={89} color="auto" />
+            <div style={{ height: '200px', width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={chartData}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    cursor={{ fill: `${theme.colors.primary}10` }}
+                  />
+                  <Bar dataKey="sessions" fill={theme.colors.primary} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
@@ -464,7 +687,7 @@ function Overview({ sessions, onRefresh }) {
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                 <PencilIcon name="check" size={14} color={theme.colors.success} />
                 <span style={{ fontSize: '12px', color: theme.colors.gray600 }}>
-                  Mark sessions complete
+                  Mark sessions complete after end time
                 </span>
               </li>
               <li style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -484,6 +707,7 @@ function Overview({ sessions, onRefresh }) {
 // ==================== SESSIONS SECTION ====================
 function Sessions({ sessions, onRefresh }) {
   const [filter, setFilter] = useState('all');
+  const [extensionRequest, setExtensionRequest] = useState(null);
 
   const filteredSessions = sessions.filter(s => {
     if (filter === 'all') return true;
@@ -494,10 +718,32 @@ function Sessions({ sessions, onRefresh }) {
     switch(status) {
       case 'pending': return { bg: '#fef3c7', color: '#92400e', label: 'Pending' };
       case 'upcoming': return { bg: '#dbeafe', color: '#1e40af', label: 'Upcoming' };
+      case 'live': return { bg: '#fee2e2', color: '#991b1b', label: 'Live' };
+      case 'ended': return { bg: '#fef3c7', color: '#92400e', label: 'Ended' };
       case 'completed': return { bg: '#dcfce7', color: '#166534', label: 'Completed' };
       case 'rejected': return { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' };
       case 'cancelled': return { bg: '#f3f4f6', color: '#4b5563', label: 'Cancelled' };
       default: return { bg: '#f3f4f6', color: '#4b5563', label: status };
+    }
+  };
+
+  const handleApproveExtension = async (sessionId, minutes) => {
+    try {
+      await sessionAPI.approveExtension(sessionId, { minutes });
+      toast.success(`Session extended by ${minutes} minutes`);
+      onRefresh();
+    } catch (error) {
+      toast.error('Failed to approve extension');
+    }
+  };
+
+  const handleRejectExtension = async (sessionId) => {
+    try {
+      await sessionAPI.rejectExtension(sessionId);
+      toast.info('Extension request declined');
+      onRefresh();
+    } catch (error) {
+      toast.error('Failed to reject extension');
     }
   };
 
@@ -523,7 +769,7 @@ function Sessions({ sessions, onRefresh }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {['all', 'pending', 'upcoming', 'completed'].map(f => (
+          {['all', 'pending', 'upcoming', 'live', 'ended', 'completed'].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -589,6 +835,11 @@ function Sessions({ sessions, onRefresh }) {
                         {s.user?.name}
                       </h3>
                       <div style={{ fontSize: '14px', color: theme.colors.gray600 }}>{s.topic}</div>
+                      {s.totalExtendedMinutes > 0 && (
+                        <div style={{ fontSize: '11px', color: theme.colors.success, marginTop: '2px' }}>
+                          +{s.totalExtendedMinutes} min extended
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -604,7 +855,7 @@ function Sessions({ sessions, onRefresh }) {
                       </span>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <PencilIcon name="duration" size={14} color={theme.colors.gray500} />
-                        {s.duration}m
+                        {s.duration + (s.totalExtendedMinutes || 0)}m
                       </span>
                     </div>
                     
@@ -622,7 +873,7 @@ function Sessions({ sessions, onRefresh }) {
                     {s.status === 'pending' && (
                       <AcceptReject session={s} onRefresh={onRefresh} />
                     )}
-                    {s.status === 'upcoming' && (
+                    {(s.status === 'ended' || (s.status === 'upcoming' && new Date() > new Date(`${s.date.split('T')[0]}T${s.time}`))) && (
                       <MarkCompleteBtn session={s} onRefresh={onRefresh} />
                     )}
                   </div>
@@ -649,6 +900,15 @@ function Sessions({ sessions, onRefresh }) {
             );
           })}
         </div>
+      )}
+
+      {extensionRequest && (
+        <ExtensionRequestModal
+          session={extensionRequest}
+          onClose={() => setExtensionRequest(null)}
+          onApprove={handleApproveExtension}
+          onReject={handleRejectExtension}
+        />
       )}
     </div>
   );
@@ -715,11 +975,7 @@ function Clients({ sessions }) {
                 borderRadius: theme.borderRadius.lg,
                 padding: '24px',
                 border: `1px solid ${theme.colors.gray200}`,
-                transition: 'all 0.2s',
-                ':hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: theme.shadows.lg
-                }
+                transition: 'all 0.2s'
               }}>
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px' }}>
                   <Avatar name={c.name} size={56} />
@@ -804,7 +1060,7 @@ function Clients({ sessions }) {
   );
 }
 
-// ==================== MESSAGES SECTION WITH WORKING FILE UPLOAD ====================
+// ==================== MESSAGES SECTION ====================
 function Messages() {
   const { user } = useAuth();
   const location = useLocation();
@@ -817,6 +1073,34 @@ function Messages() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [downloadedFiles, setDownloadedFiles] = useState({});
+  const [contextMenu, setContextMenu] = useState(null);
+
+  const handleContextMenu = (e, msg) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, message: msg });
+  };
+  
+  const closeContextMenu = () => setContextMenu(null);
+
+  const handleDeleteMessage = async (msgId) => {
+    try {
+      await messageAPI.deleteMessage(msgId);
+      setMsgs(prev => prev.map(m => m._id === msgId ? { ...m, isDeleted: true, text: '', file: null, attachments: [] } : m));
+      toast.success('Message deleted');
+    } catch (e) {
+      toast.error('Failed to delete message');
+    }
+    closeContextMenu();
+  };
+
+  const handleCopyMessage = (text) => {
+    if(text) {
+      navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
+    }
+    closeContextMenu();
+  };
 
   const loadConversations = async () => {
     try {
@@ -903,18 +1187,15 @@ function Messages() {
     }
   };
 
-  // Document Upload Function
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file || !active) return;
 
-    // Check file size
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File size must be less than 10MB');
       return;
     }
 
-    // Allowed file types
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/gif', 'image/webp',
       'application/pdf',
@@ -930,15 +1211,12 @@ function Messages() {
 
     setUploading(true);
 
-    // Create FormData
     const formData = new FormData();
     formData.append('file', file);
     formData.append('recipientId', active.partner._id);
 
     try {
       const token = localStorage.getItem('token');
-      console.log('Uploading file to:', `${process.env.REACT_APP_API_URL}/messages/upload`);
-      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/messages/upload`, {
         method: 'POST',
         headers: {
@@ -948,15 +1226,10 @@ function Messages() {
       });
 
       const data = await response.json();
-      console.log('Upload response:', data);
 
       if (data.success) {
-        // Add the real file message from server
         setMsgs(prev => [...prev, data.message]);
-        
-        // Refresh conversations to update last message
         loadConversations();
-        
         toast.success('File uploaded successfully');
       } else {
         toast.error(data.message || 'File upload failed');
@@ -966,11 +1239,16 @@ function Messages() {
       toast.error('Failed to connect to server. Please try again.');
     } finally {
       setUploading(false);
-      // Clear file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const handleFileDownload = (fileId, fileUrl) => {
+    setDownloadedFiles(prev => ({ ...prev, [fileId]: true }));
+    window.open(fileUrl, '_blank');
+    toast.success('File downloaded');
   };
 
   const getFileIcon = (fileType) => {
@@ -1004,7 +1282,6 @@ function Messages() {
         overflow: 'hidden',
         boxShadow: theme.shadows.md
       }}>
-        {/* Left Sidebar - Conversations List */}
         <div style={{
           width: '320px',
           borderRight: `1px solid ${theme.colors.gray200}`,
@@ -1129,7 +1406,6 @@ function Messages() {
           </div>
         </div>
 
-        {/* Right Side - Chat Area */}
         <div style={{ 
           flex: 1, 
           display: 'flex', 
@@ -1167,7 +1443,6 @@ function Messages() {
             </div>
           ) : (
             <>
-              {/* Chat Header */}
               <div style={{
                 padding: '16px 24px',
                 borderBottom: `1px solid ${theme.colors.gray200}`,
@@ -1206,7 +1481,6 @@ function Messages() {
                 </div>
               </div>
 
-              {/* Messages Container */}
               <div style={{
                 flex: 1,
                 padding: '24px',
@@ -1242,6 +1516,7 @@ function Messages() {
                     const isMe = m.sender?._id === user._id;
                     const showDate = index === 0 || 
                       new Date(m.createdAt).toDateString() !== new Date(msgs[index - 1].createdAt).toDateString();
+                    const fileData = m.file || (m.attachments && m.attachments[0]);
                     
                     return (
                       <React.Fragment key={m._id}>
@@ -1267,9 +1542,48 @@ function Messages() {
                           </div>
                         )}
                         
-                        {/* File Message */}
-                        {m.file ? (
-                          <div style={{
+                        {m.isDeleted ? (
+                          <div
+                            onContextMenu={(e) => handleContextMenu(e, m)}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: isMe ? 'flex-end' : 'flex-start'
+                            }}
+                          >
+                            <div style={{
+                              maxWidth: '70%',
+                              padding: '12px 16px',
+                              borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                              background: isMe ? `${theme.colors.primary}10` : `${theme.colors.gray100}`,
+                              color: theme.colors.gray500,
+                              fontStyle: 'italic',
+                              fontSize: '14px',
+                              border: `1px solid ${theme.colors.gray200}`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span style={{ fontSize: '14px' }}>🚫</span>
+                              {isMe ? 'You deleted this message' : 'This message was deleted'}
+                            </div>
+                            <span style={{
+                              fontSize: '10px',
+                              color: theme.colors.gray500,
+                              marginTop: '4px',
+                              marginLeft: isMe ? 0 : '8px',
+                              marginRight: isMe ? '8px' : 0
+                            }}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                          </div>
+                        ) : fileData ? (
+                          <div 
+                            onContextMenu={(e) => handleContextMenu(e, m)}
+                            style={{
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: isMe ? 'flex-end' : 'flex-start'
@@ -1296,7 +1610,7 @@ function Messages() {
                                   justifyContent: 'center'
                                 }}>
                                   <PencilIcon 
-                                    name={getFileIcon(m.file.type)} 
+                                    name={getFileIcon(fileData.type)} 
                                     size={20} 
                                     color={isMe ? theme.colors.white : theme.colors.primary} 
                                   />
@@ -1310,31 +1624,58 @@ function Messages() {
                                     overflow: 'hidden',
                                     textOverflow: 'ellipsis'
                                   }}>
-                                    {m.file.name}
+                                    {fileData.name}
                                   </div>
                                   <div style={{ 
                                     fontSize: '10px',
                                     color: isMe ? 'rgba(255,255,255,0.7)' : theme.colors.gray500,
                                     marginTop: '2px'
                                   }}>
-                                    {formatFileSize(m.file.size)}
+                                    {formatFileSize(fileData.size)}
                                   </div>
                                 </div>
-                                
-                                {/* Fixed download link with proper URL construction */}
                                 <a
-                                  href={m.file.url.startsWith('http') 
-                                    ? m.file.url 
-                                    : `${process.env.REACT_APP_API_URL.replace('/api', '')}${m.file.url}`}
+                                  href={fileData.url.startsWith('http') 
+                                    ? fileData.url 
+                                    : `${process.env.REACT_APP_API_URL.replace('/api', '')}${fileData.url}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   style={{
                                     color: isMe ? theme.colors.white : theme.colors.primary,
-                                    textDecoration: 'none'
+                                    textDecoration: 'none',
+                                    position: 'relative'
                                   }}
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleFileDownload(m._id, fileData.url.startsWith('http') 
+                                      ? fileData.url 
+                                      : `${process.env.REACT_APP_API_URL.replace('/api', '')}${fileData.url}`);
+                                  }}
                                 >
-                                  <PencilIcon name="download" size={18} color={isMe ? theme.colors.white : theme.colors.primary} />
+                                  <PencilIcon 
+                                    name={downloadedFiles[m._id] ? 'check' : 'download'} 
+                                    size={18} 
+                                    color={isMe ? theme.colors.white : theme.colors.primary} 
+                                  />
+                                  {downloadedFiles[m._id] && (
+                                    <span style={{
+                                      position: 'absolute',
+                                      top: -8,
+                                      right: -8,
+                                      fontSize: '10px',
+                                      color: '#10b981',
+                                      background: 'white',
+                                      borderRadius: '50%',
+                                      width: '14px',
+                                      height: '14px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      border: '1px solid #10b981'
+                                    }}>
+                                      ✓
+                                    </span>
+                                  )}
                                 </a>
                               </div>
                             </div>
@@ -1343,17 +1684,31 @@ function Messages() {
                               color: theme.colors.gray500,
                               marginTop: '4px',
                               marginLeft: isMe ? 0 : '8px',
-                              marginRight: isMe ? '8px' : 0
+                              marginRight: isMe ? '8px' : 0,
+                              display: 'flex',
+                              alignItems: 'center'
                             }}>
                               {new Date(m.createdAt).toLocaleTimeString([], { 
                                 hour: '2-digit', 
                                 minute: '2-digit' 
                               })}
+                              {isMe && (
+                                <span style={{ 
+                                  marginLeft: '4px',
+                                  fontSize: '12px',
+                                  color: (m.status === 'read' || m.read) ? '#3b82f6' : '#9ca3af',
+                                  letterSpacing: '-3px',
+                                  display: 'inline-block'
+                                }}>
+                                  {(m.status === 'read' || m.read || m.status === 'delivered') ? '✓✓' : '✓'}
+                                </span>
+                              )}
                             </span>
                           </div>
                         ) : (
-                          /* Text Message */
-                          <div style={{
+                          <div 
+                            onContextMenu={(e) => handleContextMenu(e, m)}
+                            style={{
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: isMe ? 'flex-end' : 'flex-start'
@@ -1378,12 +1733,25 @@ function Messages() {
                               color: theme.colors.gray500,
                               marginTop: '4px',
                               marginLeft: isMe ? 0 : '8px',
-                              marginRight: isMe ? '8px' : 0
+                              marginRight: isMe ? '8px' : 0,
+                              display: 'flex',
+                              alignItems: 'center'
                             }}>
                               {new Date(m.createdAt).toLocaleTimeString([], { 
                                 hour: '2-digit', 
                                 minute: '2-digit' 
                               })}
+                              {isMe && (
+                                <span style={{ 
+                                  marginLeft: '4px',
+                                  fontSize: '12px',
+                                  color: (m.status === 'read' || m.read) ? '#3b82f6' : '#9ca3af',
+                                  letterSpacing: '-3px',
+                                  display: 'inline-block'
+                                }}>
+                                  {(m.status === 'read' || m.read || m.status === 'delivered') ? '✓✓' : '✓'}
+                                </span>
+                              )}
                             </span>
                           </div>
                         )}
@@ -1394,7 +1762,6 @@ function Messages() {
                 <div ref={bottomRef} />
               </div>
 
-              {/* Message Input */}
               <div style={{
                 padding: '20px 24px',
                 borderTop: `1px solid ${theme.colors.gray200}`,
@@ -1477,9 +1844,71 @@ function Messages() {
           )}
         </div>
       </div>
+      {contextMenu && (
+        <>
+          <div 
+            onClick={closeContextMenu}
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998 }}
+          />
+          <div style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            background: theme.colors.white,
+            boxShadow: theme.shadows.lg,
+            borderRadius: theme.borderRadius.md,
+            padding: '8px 0',
+            zIndex: 9999,
+            border: `1px solid ${theme.colors.gray200}`,
+            minWidth: '150px'
+          }}>
+            {contextMenu.message.text && (
+              <button
+                onClick={() => handleCopyMessage(contextMenu.message.text)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 16px',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: theme.colors.gray700
+                }}
+                onMouseOver={(e) => e.target.style.background = theme.colors.gray50}
+                onMouseOut={(e) => e.target.style.background = 'transparent'}
+              >
+                Copy Message
+              </button>
+            )}
+            {contextMenu.message.sender?._id === user._id && !contextMenu.message.isDeleted && (
+              <button
+                onClick={() => handleDeleteMessage(contextMenu.message._id)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 16px',
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: theme.colors.danger
+                }}
+                onMouseOver={(e) => e.target.style.background = theme.colors.gray50}
+                onMouseOut={(e) => e.target.style.background = 'transparent'}
+              >
+                Delete Message
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
+
 // ==================== NOTIFICATIONS SECTION ====================
 function Notifications({ sessions, onRefresh }) {
   const pending = sessions.filter(s => s.status === 'pending');
@@ -1569,7 +1998,6 @@ function Settings() {
   });
   const [saving, setSaving] = useState(false);
 
-  // Get topics based on user type from imported constants
   const availableTopics = TOPICS_BY_USER_TYPE[form.userType] || TOPICS_BY_USER_TYPE['Other'];
 
   async function save() {
@@ -1627,7 +2055,7 @@ function Settings() {
               setForm({ 
                 ...form, 
                 userType: e.target.value,
-                topics: [] // Reset topics when user type changes
+                topics: []
               });
             }}
             style={{
@@ -1754,14 +2182,22 @@ function Settings() {
 export default function SupporterDashboard() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [extensionRequest, setExtensionRequest] = useState(null);
 
   const loadSessions = async () => {
     try {
       const response = await sessionAPI.getMySessions();
       setSessions(response.data.sessions || []);
+      
+      // Check for any pending extension requests
+      const pendingExtensions = response.data.sessions?.filter(s => 
+        s.extensions?.some(e => e.status === 'pending')
+      );
+      if (pendingExtensions?.length > 0) {
+        setExtensionRequest(pendingExtensions[0]);
+      }
     } catch (error) {
       console.error('Failed to load sessions:', error);
-      // Fallback data
       setSessions([
         {
           _id: '1',
@@ -1831,6 +2267,20 @@ export default function SupporterDashboard() {
           <Route path="*" element={<Navigate to="/supporter" />} />
         </Routes>
       </main>
+      {extensionRequest && (
+        <ExtensionRequestModal
+          session={extensionRequest}
+          onClose={() => setExtensionRequest(null)}
+          onApprove={async (id, minutes) => {
+            await sessionAPI.approveExtension(id, { minutes });
+            loadSessions();
+          }}
+          onReject={async (id) => {
+            await sessionAPI.rejectExtension(id);
+            loadSessions();
+          }}
+        />
+      )}
     </div>
   );
 }

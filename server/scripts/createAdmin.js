@@ -1,8 +1,9 @@
-require('dotenv').config({ path: '../.env' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const mongoose = require('mongoose');
 
 async function createAdmin() {
-  await mongoose.connect(process.env.MONGODB_URI);
+  await mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI);
   const User = require('../models/User');
 
   const existing = await User.findOne({ email: process.env.ADMIN_EMAIL });

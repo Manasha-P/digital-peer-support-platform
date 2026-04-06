@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -51,7 +52,7 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
-  googleAuth: (data) => api.post('/auth/google', data), // Make sure this line exists
+  googleAuth: (data) => api.post('/auth/google', data),
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
@@ -77,11 +78,23 @@ export const sessionAPI = {
   bookSession: (data) => api.post('/sessions', data),
   rateSession: (id, data) => api.post(`/sessions/${id}/rate`, data),
   
+  // NEW: Live Session Management
+  startLiveSession: (id) => api.put(`/sessions/${id}/start-live`),
+  extendSession: (id, data) => api.post(`/sessions/${id}/extend`, data),
+  endSessionEarly: (id) => api.post(`/sessions/${id}/end-session`),
+  getLiveSessionStatus: (id) => api.get(`/sessions/${id}/live-status`),
+  getFeedbackQRCode: (id) => api.get(`/sessions/${id}/feedback-qr`),
+  submitFeedbackByToken: (token, data) => api.post(`/sessions/feedback/${token}`, data),
+  
   // Supporter endpoints
   getPendingSessions: () => api.get('/sessions/pending'),
   acceptSession: (id) => api.put(`/sessions/${id}/accept`),
   rejectSession: (id) => api.put(`/sessions/${id}/reject`),
   completeSession: (id) => api.put(`/sessions/${id}/complete`),
+  
+  // NEW: Extension Management (Supporter)
+  approveExtension: (id, data) => api.post(`/sessions/${id}/approve-extension`, data),
+  rejectExtension: (id) => api.post(`/sessions/${id}/reject-extension`),
   
   // Common endpoints
   getSupporters: () => api.get('/sessions/supporters'),

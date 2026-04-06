@@ -9,8 +9,10 @@ const {
   getConversation,
   sendMessage,
   markAsRead,
-  deleteMessage
-} = require('../controllers/MessageController');
+  deleteMessage,
+  reactToMessage,
+  updateMessageStatus
+} = require('../controllers/Messagecontroller');
 const Message = require('../models/Message');
 
 // Ensure uploads directory exists
@@ -76,13 +78,13 @@ router.post('/upload', protect, upload.single('file'), async (req, res) => {
       sender: req.user._id,
       recipient: recipientId,
       text: `Shared a file: ${req.file.originalname}`,
-      file: {
+      attachments: [{
         name: req.file.originalname,
-        // IMPORTANT: Store the correct path - without /api
         url: `/uploads/${req.file.filename}`,
         type: req.file.mimetype,
         size: req.file.size
-      },
+      }],
+      status: 'sent',
       read: false
     });
 
@@ -126,5 +128,9 @@ router.get('/conversation/:userId', protect, getConversation);
 router.post('/', protect, sendMessage);
 router.put('/:messageId/read', protect, markAsRead);
 router.delete('/:messageId', protect, deleteMessage);
+
+// New WhatsApp-like features
+router.post('/:messageId/react', protect, reactToMessage);
+router.put('/status', protect, updateMessageStatus);
 
 module.exports = router;

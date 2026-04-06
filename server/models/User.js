@@ -21,6 +21,10 @@ const userSchema = new mongoose.Schema({
   avatar:     { type: String, default: '' },
   notifications: [notificationSchema],
   isActive:   { type: Boolean, default: true },
+  
+  // WhatsApp Presence Tracking
+  isOnline:   { type: Boolean, default: false },
+  lastSeen:   { type: Date, default: Date.now },
 }, { timestamps: true });
 
 userSchema.pre('save', async function (next) {
