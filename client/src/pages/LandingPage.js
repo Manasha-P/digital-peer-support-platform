@@ -633,7 +633,7 @@ export default function LandingPage() {
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {['About Us', 'How It Works', 'Supporters', 'FAQ'].map(item => (
                   <li key={item} style={{ marginBottom: '12px' }}>
-                    <a href="#" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
+                    <a href="#!" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
                       {item}
                     </a>
                   </li>
@@ -648,7 +648,7 @@ export default function LandingPage() {
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {['Blog', 'Guides', 'Community', 'Support'].map(item => (
                   <li key={item} style={{ marginBottom: '12px' }}>
-                    <a href="#" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
+                    <a href="#!" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
                       {item}
                     </a>
                   </li>
@@ -663,7 +663,7 @@ export default function LandingPage() {
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Contact'].map(item => (
                   <li key={item} style={{ marginBottom: '12px' }}>
-                    <a href="#" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
+                    <a href="#!" style={{ color: theme.colors.gray400, textDecoration: 'none', fontSize: '14px' }}>
                       {item}
                     </a>
                   </li>

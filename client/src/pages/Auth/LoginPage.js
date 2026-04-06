@@ -31,6 +31,7 @@ export default function LoginPage() {
         document.body.removeChild(script);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeGoogleSignIn = () => {

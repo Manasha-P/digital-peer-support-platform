@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Sidebar from '../../components/Sidebar/Sidebar';
-import { Avatar, StatusBadge, ProgressBar, EmptyState, Spinner } from '../../components/common';
+import { Avatar, Spinner } from '../../components/common';
 import PencilIcon from '../../components/common/PencilIcon';
 import { theme } from '../../styles/theme';
 import { adminAPI } from '../../utils/api';
@@ -25,6 +25,7 @@ function Overview() {
 
   useEffect(() => {
     fetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchStats = async () => {
@@ -459,6 +460,7 @@ function Approvals() {
 
   useEffect(() => {
     fetchPendingSupporters();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleApprove = async (id) => {
@@ -748,6 +750,7 @@ function ManageUsers() {
       fetchUsers();
     }, 500);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
   const handleToggleStatus = async (id) => {
@@ -942,6 +945,7 @@ function AllSessions() {
 
   useEffect(() => {
     fetchSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchSessions = async () => {
@@ -1616,6 +1620,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchPendingCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
